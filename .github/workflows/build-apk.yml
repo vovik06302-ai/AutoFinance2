@@ -11,6 +11,12 @@ jobs:
     name: Build APK & Release
     runs-on: ubuntu-latest
 
+    env:
+      KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'android' }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -41,37 +47,28 @@ jobs:
       - name: Build Web Dist
         run: npm run build
 
-      - name: Add Android Platform
-        run: npx cap add android
-
       - name: Prepare Signing Keystore
         run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
             echo "Using persistent release keystore from GitHub Secrets..."
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-          elif [ ! -f "release.keystore" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$KEYSTORE_PATH"
+          elif [ ! -f "$KEYSTORE_PATH" ]; then
             echo "Generating fallback persistent release.keystore..."
-            keytool -genkey -v -keystore release.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AutoFinance,O=AutoFinance,C=RU"
+            keytool -genkey -v -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AutoFinance,O=AutoFinance,C=RU"
           fi
+
+      - name: Add Android Platform
+        run: npx cap add android
 
       - name: Configure Android Permissions, FileProvider & Versioning
         env:
           TAG_NAME: ${{ github.ref_name }}
-          KEYSTORE_PATH: ../release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'android' }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
         run: node scripts/configure-android.js
 
       - name: Sync Capacitor Android
         run: npx cap sync android
 
       - name: Build Android APK
-        env:
-          KEYSTORE_PATH: ../release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'android' }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
         run: |
           cd android
           chmod +x gradlew
