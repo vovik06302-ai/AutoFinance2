@@ -1,8 +1,8 @@
 import React from 'react';
 import { TransactionEntity, TransactionType, DebtorSummaryGroup, SalaryPayoutEntity, UpdateStatus } from '../types';
-import { formatCurrency, calculateFinancialSummary, getUnifiedFeed } from '../utils';
+import { formatCurrency, calculateFinancialSummary, getUnifiedFeed, PAYMENT_METHODS, REVENUE_CATEGORIES } from '../utils';
 import { TotalSummaryCard } from './TotalSummaryCard';
-import { TrendingUp, ArrowDownRight, PlusCircle, UserSearch, BadgeCheck, Mic, Edit2, Trash2, CheckCircle, RefreshCw, Banknote } from 'lucide-react';
+import { TrendingUp, ArrowDownRight, PlusCircle, UserSearch, BadgeCheck, Mic, Edit2, Trash2, CheckCircle, RefreshCw, Banknote, Phone, Clock, AlertTriangle } from 'lucide-react';
 
 interface Props {
   transactions: TransactionEntity[];
@@ -37,27 +37,26 @@ export const MainScreen: React.FC<Props> = ({
   onDeleteTransaction,
   onMarkPaid
 }) => {
-  const {
-    profit,
-    activeDebtorsSum,
-    materialExpenses,
-    salaryTotal,
-    grandTotal,
-    netTotal
-  } = calculateFinancialSummary(transactions, payouts, debtorSummaries);
-
+  const summary = calculateFinancialSummary(transactions, payouts, debtorSummaries);
   const feedItems = getUnifiedFeed(transactions, payouts);
 
   return (
     <div className="max-w-md mx-auto px-4 pt-4 pb-20 space-y-4 relative">
       {/* 1. TOTAL SUMMARY CARD */}
       <TotalSummaryCard
-        grandTotal={grandTotal}
-        profit={profit}
-        debtors={activeDebtorsSum}
-        expenses={materialExpenses}
-        salaryTotal={salaryTotal}
-        netTotal={netTotal}
+        grandTotal={summary.grandTotal}
+        profit={summary.profit}
+        serviceProfit={summary.serviceProfit}
+        partsProfit={summary.partsProfit}
+        debtors={summary.activeDebtorsSum}
+        expenses={summary.materialExpenses}
+        salaryTotal={summary.salaryTotal}
+        netTotal={summary.netTotal}
+        cashProfit={summary.cashProfit}
+        sbpProfit={summary.sbpProfit}
+        cardProfit={summary.cardProfit}
+        bankProfit={summary.bankProfit}
+        netCashInRegister={summary.netCashInRegister}
       />
 
       {/* Update Availability Banner */}
@@ -190,11 +189,29 @@ export const MainScreen: React.FC<Props> = ({
                   className="p-3.5 bg-white/60 border border-white/30 rounded-xl shadow-lg space-y-2 hover:bg-white/70 transition-colors backdrop-blur-md"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className={`w-2.5 h-2.5 rounded-full ${badgeBg}`} />
                       <span className={`text-xs font-extrabold uppercase tracking-wider ${colorClass}`}>
                         {item.categoryLabel}
                       </span>
+                      {item.paymentMethod && (
+                        <span className="px-1.5 py-0.5 rounded bg-slate-900/10 text-slate-800 text-[10px] font-bold">
+                          {PAYMENT_METHODS[item.paymentMethod]?.short || 'Нал'}
+                        </span>
+                      )}
+                      {item.dueDate && (
+                        item.isOverdue ? (
+                          <span className="px-1.5 py-0.5 rounded bg-red-600 text-white text-[10px] font-bold flex items-center gap-0.5 shadow-sm">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            <span>Просрочен</span>
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-900 text-[10px] font-bold flex items-center gap-0.5 border border-amber-300">
+                            <Clock className="w-2.5 h-2.5 text-amber-800" />
+                            <span>до {new Date(item.dueDate).toLocaleDateString('ru-RU')}</span>
+                          </span>
+                        )
+                      )}
                     </div>
                     <span className="text-[11px] font-medium text-slate-600">
                       {new Date(item.date).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -216,7 +233,7 @@ export const MainScreen: React.FC<Props> = ({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-900/10">
+                  <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-900/10 flex-wrap">
                     {isDebtor && item.originalTx && (
                       <button
                         onClick={() => onMarkPaid(item.originalTx!)}
@@ -225,6 +242,17 @@ export const MainScreen: React.FC<Props> = ({
                         <CheckCircle className="w-3.5 h-3.5" />
                         <span>Должник оплатил</span>
                       </button>
+                    )}
+
+                    {isDebtor && item.phone && (
+                      <a
+                        href={`tel:${item.phone}`}
+                        className="px-2.5 py-1 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-sm"
+                        title={`Позвонить ${item.phone}`}
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>{item.phone}</span>
+                      </a>
                     )}
 
                     {isSalary && (

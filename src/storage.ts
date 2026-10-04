@@ -1,4 +1,7 @@
-import { TransactionEntity, EmployeeEntity, SalaryPayoutEntity, AppTheme, DebtorSummaryGroup } from './types';
+import { TransactionEntity, EmployeeEntity, SalaryPayoutEntity, AppTheme, DebtorSummaryGroup, BackupData } from './types';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 const STORAGE_KEYS = {
   TRANSACTIONS: 'autofinance_transactions',
@@ -14,15 +17,18 @@ const INITIAL_TRANSACTIONS: TransactionEntity[] = [
     amount: 15000,
     note: 'Замена ГРМ и масляного сервиса',
     clientInfo: 'Toyota Camry A777AA77',
-    date: Date.now() - 3600000 * 5
+    date: Date.now() - 3600000 * 5,
+    paymentMethod: 'CARD',
+    revenueCategory: 'SERVICE'
   },
   {
     id: 102,
     type: 'EXPENSE',
     amount: 4500,
     note: 'Покупка моторного масла и фильтров',
-    clientInfo: 'Запчасти',
-    date: Date.now() - 3600000 * 24
+    clientInfo: 'Toyota Camry A777AA77',
+    date: Date.now() - 3600000 * 24,
+    paymentMethod: 'CASH'
   },
   {
     id: 103,
@@ -30,7 +36,10 @@ const INITIAL_TRANSACTIONS: TransactionEntity[] = [
     amount: 8000,
     note: 'Диагностика подвески и замена рычагов',
     clientInfo: 'Сергей Kia Rio B123BB',
-    date: Date.now() - 3600000 * 48
+    date: Date.now() - 3600000 * 48,
+    paymentMethod: 'CASH',
+    phone: '+7 999 123-45-67',
+    dueDate: Date.now() + 86400000 * 3 // Deadline in 3 days
   }
 ];
 
@@ -143,22 +152,146 @@ export function groupDebtors(transactions: TransactionEntity[]): DebtorSummaryGr
   });
 
   const result: DebtorSummaryGroup[] = [];
+  const now = Date.now();
+
   map.forEach((data, name) => {
     const totalInitialDebt = data.debtTxs.reduce((sum, item) => sum + item.amount, 0);
     const totalRepaid = data.repaymentTxs.reduce((sum, item) => sum + item.amount, 0);
     const remainingDebt = Math.max(0, totalInitialDebt - totalRepaid);
 
+    const sortedDebtTxs = data.debtTxs.sort((a, b) => b.date - a.date);
+    const txWithPhone = sortedDebtTxs.find(t => !!t.phone && t.phone.trim().length > 0);
+    const phone = txWithPhone?.phone?.trim();
+
+    const txWithDueDate = sortedDebtTxs.find(t => !!t.dueDate && t.dueDate > 0);
+    const dueDate = txWithDueDate?.dueDate;
+
+    let isOverdue = false;
+    let daysDiff: number | undefined = undefined;
+
+    if (dueDate && remainingDebt > 0) {
+      const dueEnd = new Date(dueDate).setHours(23, 59, 59, 999);
+      isOverdue = now > dueEnd;
+      daysDiff = Math.ceil((dueEnd - now) / (1000 * 60 * 60 * 24));
+    }
+
     if (totalInitialDebt > 0) {
       result.push({
         name,
+        phone,
+        dueDate,
+        isOverdue,
+        daysDiff,
         totalInitialDebt,
         totalRepaid,
         remainingDebt,
-        debtTransactions: data.debtTxs.sort((a, b) => b.date - a.date),
+        debtTransactions: sortedDebtTxs,
         repaymentTransactions: data.repaymentTxs.sort((a, b) => b.date - a.date)
       });
     }
   });
 
-  return result.sort((a, b) => b.remainingDebt - a.remainingDebt);
+  return result.sort((a, b) => {
+    if (a.isOverdue && !b.isOverdue) return -1;
+    if (!a.isOverdue && b.isOverdue) return 1;
+    return b.remainingDebt - a.remainingDebt;
+  });
+}
+
+export async function exportBackupJson(
+  transactions: TransactionEntity[],
+  employees: EmployeeEntity[],
+  payouts: SalaryPayoutEntity[],
+  theme: AppTheme = 'BLUE'
+): Promise<string> {
+  const data: BackupData = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    appName: 'Финансы автосервиса',
+    transactions,
+    employees,
+    payouts,
+    theme
+  };
+
+  const jsonString = JSON.stringify(data, null, 2);
+  const fileName = `autofinance_backup_${new Date().toISOString().slice(0, 10)}.json`;
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const writeResult = await Filesystem.writeFile({
+        path: fileName,
+        data: jsonString,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8
+      });
+
+      await Share.share({
+        title: 'Резервная копия базы автосервиса',
+        text: 'Файл резервной копии базы данных (JSON)',
+        url: writeResult.uri,
+        dialogTitle: 'Сохранить резервную копию'
+      });
+      return fileName;
+    } catch (e) {
+      console.error('Error sharing backup file', e);
+      fallbackBrowserDownload(jsonString, fileName);
+      return fileName;
+    }
+  } else {
+    fallbackBrowserDownload(jsonString, fileName);
+    return fileName;
+  }
+}
+
+function fallbackBrowserDownload(content: string, fileName: string) {
+  const blob = new Blob([content], { type: 'application/json;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', fileName);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+export function parseAndValidateBackup(jsonText: string): BackupData {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch (e) {
+    throw new Error('Файл не является корректным JSON документом.');
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Некорректная структура файла бэкапа.');
+  }
+
+  if (!Array.isArray(parsed.transactions)) {
+    throw new Error('В файле отсутствует список транзакций (поле transactions).');
+  }
+
+  // Validate each transaction minimally
+  for (const t of parsed.transactions) {
+    if (!t.id || !t.type || typeof t.amount !== 'number') {
+      throw new Error('Обнаружена некорректная запись операции в файле.');
+    }
+  }
+
+  const employees: EmployeeEntity[] = Array.isArray(parsed.employees) ? parsed.employees : [];
+  const payouts: SalaryPayoutEntity[] = Array.isArray(parsed.payouts) ? parsed.payouts : [];
+  const theme: AppTheme = (parsed.theme && ['BLUE', 'GREEN', 'PURPLE', 'ORANGE', 'RED'].includes(parsed.theme))
+    ? parsed.theme
+    : 'BLUE';
+
+  return {
+    version: parsed.version || 1,
+    exportedAt: parsed.exportedAt || new Date().toISOString(),
+    appName: parsed.appName || 'Финансы автосервиса',
+    transactions: parsed.transactions,
+    employees,
+    payouts,
+    theme
+  };
 }

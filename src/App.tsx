@@ -5,7 +5,10 @@ import {
   SalaryPayoutEntity,
   AppScreen,
   TransactionType,
-  UpdateStatus
+  PaymentMethod,
+  RevenueCategory,
+  UpdateStatus,
+  BackupData
 } from './types';
 import {
   loadTransactions,
@@ -29,11 +32,13 @@ import { DebtorSearchModal } from './components/DebtorSearchModal';
 import { SalaryModal } from './components/SalaryModal';
 import { ThemeModal } from './components/ThemeModal';
 import { UpdateModal } from './components/UpdateModal';
+import { BackupModal } from './components/BackupModal';
 import { Starfield } from './components/Starfield';
+import { App as CapApp } from '@capacitor/app';
 import { Mic, Send, X } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { setAppTheme } = useAppTheme();
+  const { theme, setAppTheme } = useAppTheme();
 
   // State
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('MAIN');
@@ -48,6 +53,7 @@ const MainContent: React.FC = () => {
   const [showSalary, setShowSalary] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
   const [showUpdate, setShowUpdate] = useState(false);
+  const [showBackup, setShowBackup] = useState(false);
 
   // Voice state
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -79,6 +85,59 @@ const MainContent: React.FC = () => {
     }
   }, [toastMessage]);
 
+  // Handle Android Hardware Back Button & Browser Back
+  useEffect(() => {
+    let backListener: any = null;
+
+    const setupBackListener = async () => {
+      try {
+        backListener = await CapApp.addListener('backButton', () => {
+          if (isVoiceModalOpen) {
+            setIsVoiceModalOpen(false);
+          } else if (showBackup) {
+            setShowBackup(false);
+          } else if (showUpdate) {
+            setShowUpdate(false);
+          } else if (showTheme) {
+            setShowTheme(false);
+          } else if (showSalary) {
+            setShowSalary(false);
+          } else if (showDebtorSearch) {
+            setShowDebtorSearch(false);
+          } else if (editingTransaction) {
+            setEditingTransaction(null);
+          } else if (activeDialogType) {
+            setActiveDialogType(null);
+          } else if (currentScreen === 'REPORT') {
+            setCurrentScreen('MAIN');
+          } else {
+            CapApp.exitApp();
+          }
+        });
+      } catch (e) {
+        // Running in web browser
+      }
+    };
+
+    setupBackListener();
+
+    return () => {
+      if (backListener) {
+        backListener.remove();
+      }
+    };
+  }, [
+    isVoiceModalOpen,
+    showBackup,
+    showUpdate,
+    showTheme,
+    showSalary,
+    showDebtorSearch,
+    editingTransaction,
+    activeDialogType,
+    currentScreen
+  ]);
+
   // Voice processing logic
   const handleProcessVoiceText = (text: string) => {
     if (!text.trim()) return;
@@ -92,7 +151,9 @@ const MainContent: React.FC = () => {
           amount: command.amount,
           note: command.note,
           clientInfo: command.clientInfo,
-          date: Date.now()
+          date: Date.now(),
+          paymentMethod: command.paymentMethod || 'CASH',
+          revenueCategory: command.revenueCategory
         };
         setTransactions(prev => [newTx, ...prev]);
         const typeName = command.type === 'PROFIT' ? 'Прибыль' : command.type === 'EXPENSE' ? 'Расходники' : 'Должник';
@@ -181,14 +242,27 @@ const MainContent: React.FC = () => {
   };
 
   // Transactions Actions
-  const handleAddTransaction = (type: TransactionType, amount: number, note: string, clientInfo: string) => {
+  const handleAddTransaction = (
+    type: TransactionType,
+    amount: number,
+    note: string,
+    clientInfo: string,
+    paymentMethod: PaymentMethod = 'CASH',
+    revenueCategory?: RevenueCategory,
+    phone?: string,
+    dueDate?: number
+  ) => {
     const newTx: TransactionEntity = {
       id: Date.now(),
       type,
       amount,
       note,
       clientInfo,
-      date: Date.now()
+      date: Date.now(),
+      paymentMethod,
+      revenueCategory,
+      phone,
+      dueDate
     };
     setTransactions(prev => [newTx, ...prev]);
     setActiveDialogType(null);
@@ -214,13 +288,20 @@ const MainContent: React.FC = () => {
       amount: tx.amount,
       note: `Погашение долга: ${clientName}`,
       clientInfo: clientName,
-      date: Date.now()
+      date: Date.now(),
+      paymentMethod: 'CASH',
+      revenueCategory: 'SERVICE'
     };
     setTransactions(prev => [profitTx, ...prev]);
     setToastMessage(`Погашение долга: +${formatCurrency(tx.amount)} (${clientName})`);
   };
 
-  const handleWriteOffDebtor = (clientName: string, amount: number, onError: (msg: string) => void) => {
+  const handleWriteOffDebtor = (
+    clientName: string,
+    amount: number,
+    onError: (msg: string) => void,
+    paymentMethod: PaymentMethod = 'CASH'
+  ) => {
     const debtorGroup = debtorSummaries.find(d => d.name === clientName);
     const remainingDebt = debtorGroup ? debtorGroup.remainingDebt : 0;
 
@@ -240,7 +321,9 @@ const MainContent: React.FC = () => {
       amount: amount,
       note: `Погашение долга: ${clientName}`,
       clientInfo: clientName,
-      date: Date.now()
+      date: Date.now(),
+      paymentMethod,
+      revenueCategory: 'SERVICE'
     };
 
     setTransactions(prev => [profitRecord, ...prev]);
@@ -307,6 +390,39 @@ const MainContent: React.FC = () => {
     setToastMessage(`Выплачено ${formatCurrency(amount)} (${employee.name})`);
   };
 
+  const handleRestoreBackup = (data: BackupData, mode: 'REPLACE' | 'MERGE') => {
+    if (mode === 'REPLACE') {
+      setTransactions(data.transactions);
+      setEmployees(data.employees);
+      setPayouts(data.payouts);
+      if (data.theme) {
+        setAppTheme(data.theme);
+      }
+      setToastMessage('База данных успешно восстановлена (Замена)');
+    } else {
+      // MERGE: combine without duplicates
+      setTransactions(prev => {
+        const existingIds = new Set(prev.map(t => t.id));
+        const newOnes = data.transactions.filter(t => !existingIds.has(t.id));
+        return [...newOnes, ...prev];
+      });
+
+      setEmployees(prev => {
+        const existingNames = new Set(prev.map(e => e.name.toLowerCase().trim()));
+        const newOnes = data.employees.filter(e => !existingNames.has(e.name.toLowerCase().trim()));
+        return [...prev, ...newOnes];
+      });
+
+      setPayouts(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const newOnes = data.payouts.filter(p => !existingIds.has(p.id));
+        return [...newOnes, ...prev];
+      });
+
+      setToastMessage('Данные успешно объединены с текущей базой');
+    }
+  };
+
   const debtorSummaries = groupDebtors(transactions);
 
   return (
@@ -320,6 +436,7 @@ const MainContent: React.FC = () => {
           onOpenTheme={() => setShowTheme(true)}
           onOpenUpdate={() => setShowUpdate(true)}
           onOpenReport={() => setCurrentScreen('REPORT')}
+          onOpenBackup={() => setShowBackup(true)}
           hasUpdateAvailable={updateStatus.status === 'update_available'}
         />
       )}
@@ -361,7 +478,9 @@ const MainContent: React.FC = () => {
         <AddEditModal
           type={activeDialogType}
           onClose={() => setActiveDialogType(null)}
-          onSave={(amount, note, clientInfo) => handleAddTransaction(activeDialogType, amount, note, clientInfo)}
+          onSave={(amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate) =>
+            handleAddTransaction(activeDialogType, amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate)
+          }
         />
       )}
 
@@ -370,8 +489,8 @@ const MainContent: React.FC = () => {
           type={editingTransaction.type}
           existingTransaction={editingTransaction}
           onClose={() => setEditingTransaction(null)}
-          onSave={(amount, note, clientInfo) =>
-            handleUpdateTransaction({ ...editingTransaction, amount, note, clientInfo })
+          onSave={(amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate) =>
+            handleUpdateTransaction({ ...editingTransaction, amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate })
           }
         />
       )}
@@ -409,6 +528,17 @@ const MainContent: React.FC = () => {
           onClose={() => setShowUpdate(false)}
           onCheckUpdate={triggerUpdateCheck}
           onStartDownload={handleStartDownloadUpdate}
+        />
+      )}
+
+      {showBackup && (
+        <BackupModal
+          transactions={transactions}
+          employees={employees}
+          payouts={payouts}
+          currentTheme={theme}
+          onClose={() => setShowBackup(false)}
+          onRestore={handleRestoreBackup}
         />
       )}
 

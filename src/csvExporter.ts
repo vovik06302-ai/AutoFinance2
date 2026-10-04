@@ -1,16 +1,23 @@
 import { TransactionEntity, SalaryPayoutEntity } from './types';
-import { getUnifiedFeed } from './utils';
+import { getUnifiedFeed, PAYMENT_METHODS, REVENUE_CATEGORIES } from './utils';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
 export interface SummaryTotals {
   profit: number;
+  serviceProfit?: number;
+  partsProfit?: number;
   debtors: number;
   materialExpenses: number;
   grandTotal: number;
   salaryTotal: number;
   netTotal: number;
+  cashProfit?: number;
+  sbpProfit?: number;
+  cardProfit?: number;
+  bankProfit?: number;
+  netCashInRegister?: number;
 }
 
 export async function exportAndShareCsv(
@@ -20,7 +27,7 @@ export async function exportAndShareCsv(
   summaryTotals?: SummaryTotals
 ) {
   const BOM = '\uFEFF';
-  const header = 'ID;Дата;Тип;Сумма (₽);Описание/Заметка;Клиент/Сотрудник\n';
+  const header = 'ID;Дата;Категория;Направление;Оплата;Сумма (₽);Описание/Заметка;Клиент/Авто/Сотрудник\n';
 
   const feedItems = getUnifiedFeed(transactions, payouts);
 
@@ -33,10 +40,18 @@ export async function exportAndShareCsv(
       minute: '2-digit'
     });
 
+    const categoryDirection = item.revenueCategory
+      ? REVENUE_CATEGORIES[item.revenueCategory]?.label || '-'
+      : '-';
+
+    const paymentMethodLabel = item.paymentMethod
+      ? PAYMENT_METHODS[item.paymentMethod]?.label || 'Наличные'
+      : 'Наличные';
+
     const noteEscaped = (item.note || '').replace(/;/g, ',').replace(/\n/g, ' ');
     const clientEscaped = (item.clientInfo || '').replace(/;/g, ',').replace(/\n/g, ' ');
 
-    return `${item.originalId};${dateStr};${item.categoryLabel};${item.amount};${noteEscaped};${clientEscaped}`;
+    return `${item.originalId};${dateStr};${item.categoryLabel};${categoryDirection};${paymentMethodLabel};${item.amount};${noteEscaped};${clientEscaped}`;
   });
 
   let summaryRowsStr = '';
@@ -44,12 +59,21 @@ export async function exportAndShareCsv(
     summaryRowsStr = [
       '',
       `--- ИТОГИ ЗА ПЕРИОД: ${periodTitle} ---`,
-      `;;Прибыль;${summaryTotals.profit};;`,
-      `;;Должники (непогашено);${summaryTotals.debtors};;`,
-      `;;Расходники (материалы);${summaryTotals.materialExpenses};;`,
-      `;;Общий итог;${summaryTotals.grandTotal};;`,
-      `;;Зарплата сотрудников (всего);${summaryTotals.salaryTotal};;`,
-      `;;Чистый итог;${summaryTotals.netTotal};;`
+      `;;;;Общая прибыль;${summaryTotals.profit};;`,
+      `;;;;  из них Работы;${summaryTotals.serviceProfit ?? 0};;`,
+      `;;;;  из них Запчасти;${summaryTotals.partsProfit ?? 0};;`,
+      `;;;;Должники (непогашено);${summaryTotals.debtors};;`,
+      `;;;;Расходники (материалы);${summaryTotals.materialExpenses};;`,
+      `;;;;Общий итог (Прибыль − Расходники);${summaryTotals.grandTotal};;`,
+      `;;;;Зарплата сотрудников (всего);${summaryTotals.salaryTotal};;`,
+      `;;;;Чистый итог;${summaryTotals.netTotal};;`,
+      '',
+      '--- КАССА И СПОСОБЫ ОПЛАТЫ ---',
+      `;;;;Наличные (приход);${summaryTotals.cashProfit ?? 0};;`,
+      `;;;;СБП / Переводы;${summaryTotals.sbpProfit ?? 0};;`,
+      `;;;;Терминал (карта);${summaryTotals.cardProfit ?? 0};;`,
+      `;;;;Безнал (по счёту);${summaryTotals.bankProfit ?? 0};;`,
+      `;;;;Остаток наличных в кассе;${summaryTotals.netCashInRegister ?? 0};;`
     ].join('\n');
   }
 

@@ -1,4 +1,4 @@
-import { VoiceCommand, TransactionType } from './types';
+import { VoiceCommand, TransactionType, PaymentMethod, RevenueCategory } from './types';
 
 const wordToNumberMap: Record<string, number> = {
   'ноль': 0,
@@ -175,12 +175,34 @@ export function parseVoiceCommand(rawText: string): VoiceCommand {
         }
       }
 
+      // Detect payment method
+      let paymentMethod: PaymentMethod = 'CASH';
+      if (text.includes('сбп') || text.includes('перевод') || text.includes('переводом')) {
+        paymentMethod = 'SBP';
+      } else if (text.includes('терминал') || text.includes('картой') || text.includes('карта')) {
+        paymentMethod = 'CARD';
+      } else if (text.includes('безнал') || text.includes('счет') || text.includes('счёт')) {
+        paymentMethod = 'BANK_ACCOUNT';
+      }
+
+      // Detect revenue category for profit
+      let revenueCategory: RevenueCategory | undefined = undefined;
+      if (type === 'PROFIT') {
+        if (text.includes('запчаст') || text.includes('детал') || text.includes('масло') || text.includes('фильтр')) {
+          revenueCategory = 'SPARE_PARTS';
+        } else {
+          revenueCategory = 'SERVICE';
+        }
+      }
+
       return {
         kind: 'add_transaction',
         type,
         amount,
         note: note || 'Голосовая запись',
-        clientInfo
+        clientInfo,
+        paymentMethod,
+        revenueCategory
       };
     }
   }

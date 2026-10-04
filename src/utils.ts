@@ -1,4 +1,4 @@
-import { TransactionEntity, SalaryPayoutEntity } from './types';
+import { TransactionEntity, SalaryPayoutEntity, PaymentMethod, RevenueCategory } from './types';
 
 export function formatCurrency(val: number): string {
   const formatted = new Intl.NumberFormat('ru-RU', {
@@ -6,6 +6,18 @@ export function formatCurrency(val: number): string {
   }).format(Math.round(val || 0));
   return `${formatted} ₽`;
 }
+
+export const PAYMENT_METHODS: Record<PaymentMethod, { label: string; short: string; icon: string }> = {
+  CASH: { label: 'Наличные', short: 'Нал', icon: '💵' },
+  SBP: { label: 'Перевод (СБП)', short: 'СБП', icon: '📲' },
+  CARD: { label: 'Терминал (карта)', short: 'Карта', icon: '💳' },
+  BANK_ACCOUNT: { label: 'Безнал (счёт)', short: 'Счёт', icon: '🏦' }
+};
+
+export const REVENUE_CATEGORIES: Record<RevenueCategory, { label: string; icon: string }> = {
+  SERVICE: { label: 'Работы / Услуги', icon: '🔧' },
+  SPARE_PARTS: { label: 'Запчасти / Детали', icon: '⚙️' }
+};
 
 export const MONTH_NAMES_RU = [
   'Январь',
@@ -40,6 +52,11 @@ export interface UnifiedFeedItem {
   clientInfo: string;
   isPayoutObj?: boolean;
   originalTx?: TransactionEntity;
+  paymentMethod?: PaymentMethod;
+  revenueCategory?: RevenueCategory;
+  phone?: string;
+  dueDate?: number;
+  isOverdue?: boolean;
 }
 
 export function getUnifiedFeed(
@@ -55,6 +72,9 @@ export function getUnifiedFeed(
 
   // Process transactions
   filteredTx.forEach(t => {
+    const paymentMethod = t.paymentMethod || 'CASH';
+    const revenueCategory = t.revenueCategory || (t.type === 'PROFIT' ? 'SERVICE' : undefined);
+
     if (isLegacySalaryTransaction(t)) {
       items.push({
         id: `tx-${t.id}`,
@@ -65,7 +85,8 @@ export function getUnifiedFeed(
         amount: t.amount,
         note: t.note,
         clientInfo: t.clientInfo || 'Сотрудник',
-        originalTx: t
+        originalTx: t,
+        paymentMethod
       });
     } else if (t.type === 'PROFIT') {
       const isRepayment = t.note.toLowerCase().includes('погашение долга') || t.note.toLowerCase().includes('списание долга');
@@ -74,13 +95,16 @@ export function getUnifiedFeed(
         originalId: t.id,
         date: t.date,
         category: isRepayment ? 'REPAYMENT' : 'PROFIT',
-        categoryLabel: isRepayment ? 'Погашение долга' : 'Прибыль',
+        categoryLabel: isRepayment ? 'Погашение долга' : (revenueCategory === 'SPARE_PARTS' ? 'Запчасти' : 'Прибыль'),
         amount: t.amount,
         note: t.note,
         clientInfo: t.clientInfo,
-        originalTx: t
+        originalTx: t,
+        paymentMethod,
+        revenueCategory
       });
     } else if (t.type === 'DEBTOR') {
+      const isOverdue = !!t.dueDate && t.dueDate > 0 && Date.now() > new Date(t.dueDate).setHours(23, 59, 59, 999);
       items.push({
         id: `tx-${t.id}`,
         originalId: t.id,
@@ -90,7 +114,11 @@ export function getUnifiedFeed(
         amount: t.amount,
         note: t.note,
         clientInfo: t.clientInfo,
-        originalTx: t
+        originalTx: t,
+        paymentMethod,
+        phone: t.phone,
+        dueDate: t.dueDate,
+        isOverdue
       });
     } else if (t.type === 'EXPENSE') {
       items.push({
@@ -102,7 +130,8 @@ export function getUnifiedFeed(
         amount: t.amount,
         note: t.note,
         clientInfo: t.clientInfo,
-        originalTx: t
+        originalTx: t,
+        paymentMethod
       });
     }
   });
@@ -123,7 +152,8 @@ export function getUnifiedFeed(
         amount: p.amount,
         note: `Выплата зарплаты (${p.employeeName})`,
         clientInfo: p.employeeName,
-        isPayoutObj: true
+        isPayoutObj: true,
+        paymentMethod: 'CASH'
       });
     }
   });
@@ -143,8 +173,16 @@ export function calculateFinancialSummary(
   const periodTx = transactions.filter(t => isInPeriod(t.date));
   const periodPayouts = payouts.filter(p => isInPeriod(p.date));
 
-  // 1. Profit
+  // 1. Profit Breakdown
   const profit = periodTx.filter(t => t.type === 'PROFIT').reduce((sum, t) => sum + t.amount, 0);
+
+  const serviceProfit = periodTx
+    .filter(t => t.type === 'PROFIT' && (t.revenueCategory === 'SERVICE' || !t.revenueCategory))
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const partsProfit = periodTx
+    .filter(t => t.type === 'PROFIT' && t.revenueCategory === 'SPARE_PARTS')
+    .reduce((sum, t) => sum + t.amount, 0);
 
   // 2. Active Debtors
   const activeDebtorsSum = debtorSummaries.reduce((sum, d) => sum + d.remainingDebt, 0);
@@ -154,7 +192,30 @@ export function calculateFinancialSummary(
     .filter(t => t.type === 'EXPENSE' && !isLegacySalaryTransaction(t))
     .reduce((sum, t) => sum + t.amount, 0);
 
-  // 4. Salary Total (Payouts + Orphan Legacy Salary Transactions)
+  // 4. Cash Desk & Payment Breakdown
+  const cashProfit = periodTx
+    .filter(t => t.type === 'PROFIT' && (t.paymentMethod === 'CASH' || !t.paymentMethod))
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const sbpProfit = periodTx
+    .filter(t => t.type === 'PROFIT' && t.paymentMethod === 'SBP')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const cardProfit = periodTx
+    .filter(t => t.type === 'PROFIT' && t.paymentMethod === 'CARD')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const bankProfit = periodTx
+    .filter(t => t.type === 'PROFIT' && t.paymentMethod === 'BANK_ACCOUNT')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const cashExpenses = periodTx
+    .filter(t => t.type === 'EXPENSE' && !isLegacySalaryTransaction(t) && (t.paymentMethod === 'CASH' || !t.paymentMethod))
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const nonCashExpenses = materialExpenses - cashExpenses;
+
+  // 5. Salary Total (Payouts + Orphan Legacy Salary Transactions)
   const salaryFromPayouts = periodPayouts.reduce((sum, p) => sum + p.amount, 0);
 
   const legacySalaryTxs = periodTx.filter(t => isLegacySalaryTransaction(t));
@@ -165,14 +226,26 @@ export function calculateFinancialSummary(
 
   const salaryTotal = salaryFromPayouts + salaryFromOrphans;
 
+  // Cash in cash drawer (Наличные в кассе за период)
+  const netCashInRegister = cashProfit - cashExpenses;
+
   // Formulas
   const grandTotal = profit + activeDebtorsSum - materialExpenses;
   const netTotal = grandTotal - salaryTotal;
 
   return {
     profit,
+    serviceProfit,
+    partsProfit,
     activeDebtorsSum,
     materialExpenses,
+    cashExpenses,
+    nonCashExpenses,
+    cashProfit,
+    sbpProfit,
+    cardProfit,
+    bankProfit,
+    netCashInRegister,
     salaryTotal,
     grandTotal,
     netTotal

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { TransactionEntity, EmployeeEntity, SalaryPayoutEntity, DebtorSummaryGroup } from '../types';
-import { formatCurrency, MONTH_NAMES_RU, calculateFinancialSummary, getUnifiedFeed } from '../utils';
+import { formatCurrency, MONTH_NAMES_RU, calculateFinancialSummary, getUnifiedFeed, PAYMENT_METHODS, REVENUE_CATEGORIES } from '../utils';
 import { exportAndShareCsv } from '../csvExporter';
-import { ArrowLeft, Download, ChevronLeft, ChevronRight, Calendar, TrendingUp, CreditCard, Users, ArrowDownRight, FileText } from 'lucide-react';
+import { ArrowLeft, Download, ChevronLeft, ChevronRight, Calendar, TrendingUp, CreditCard, Users, ArrowDownRight, FileText, Wallet } from 'lucide-react';
 
 interface Props {
   transactions: TransactionEntity[];
@@ -61,8 +61,16 @@ export const ReportScreen: React.FC<Props> = ({
   // Calculated financial summaries for period
   const {
     profit: periodProfit,
+    serviceProfit: periodServiceProfit,
+    partsProfit: periodPartsProfit,
     activeDebtorsSum,
     materialExpenses: periodMaterialExpenses,
+    cashExpenses: periodCashExpenses,
+    cashProfit: periodCashProfit,
+    sbpProfit: periodSbpProfit,
+    cardProfit: periodCardProfit,
+    bankProfit: periodBankProfit,
+    netCashInRegister: periodNetCashInRegister,
     salaryTotal: periodSalaryTotal,
     grandTotal: periodGrandTotal,
     netTotal: periodNetTotal
@@ -89,11 +97,18 @@ export const ReportScreen: React.FC<Props> = ({
       periodTitle,
       {
         profit: periodProfit,
+        serviceProfit: periodServiceProfit,
+        partsProfit: periodPartsProfit,
         debtors: totalUnpaidDebt,
         materialExpenses: periodMaterialExpenses,
         grandTotal: periodGrandTotal,
         salaryTotal: periodSalaryTotal,
-        netTotal: periodNetTotal
+        netTotal: periodNetTotal,
+        cashProfit: periodCashProfit,
+        sbpProfit: periodSbpProfit,
+        cardProfit: periodCardProfit,
+        bankProfit: periodBankProfit,
+        netCashInRegister: periodNetCashInRegister
       }
     );
   };
@@ -153,7 +168,7 @@ export const ReportScreen: React.FC<Props> = ({
             </div>
           ) : (
             <div className="flex items-center justify-center w-full py-1 text-slate-900 font-extrabold text-base gap-2">
-              <Calendar className="w-5 h-5 text-blue-700" />
+              <Calendar className="w-4 h-4 text-blue-700" />
               <span>За всё время</span>
             </div>
           )}
@@ -170,23 +185,73 @@ export const ReportScreen: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* 1. BLOCK: ПРИБЫЛЬ */}
-        <div className="p-4 bg-emerald-500/25 border border-emerald-300/30 rounded-2xl shadow-lg backdrop-blur-md space-y-1">
+        {/* 1. BLOCK: ПРИБЫЛЬ & НАПРАВЛЕНИЯ (РАБОТЫ / ЗАПЧАСТИ) */}
+        <div className="p-4 bg-emerald-500/25 border border-emerald-300/30 rounded-2xl shadow-lg backdrop-blur-md space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-emerald-300" />
-              <span className="font-bold text-white text-base">Прибыль</span>
+              <span className="font-bold text-white text-base">Выручка (Прибыль)</span>
             </div>
             <span className="text-2xl font-black text-emerald-300 drop-shadow">
               {formatCurrency(periodProfit)}
             </span>
           </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-emerald-300/20">
+            <div className="p-2.5 bg-emerald-900/30 border border-emerald-400/20 rounded-xl text-white">
+              <span className="text-emerald-200 font-semibold block text-[11px]">🔧 Работы / Услуги:</span>
+              <span className="text-sm font-black text-emerald-300">{formatCurrency(periodServiceProfit)}</span>
+            </div>
+            <div className="p-2.5 bg-emerald-900/30 border border-emerald-400/20 rounded-xl text-white">
+              <span className="text-emerald-200 font-semibold block text-[11px]">⚙️ Запчасти / Детали:</span>
+              <span className="text-sm font-black text-emerald-300">{formatCurrency(periodPartsProfit)}</span>
+            </div>
+          </div>
+
           <div className="text-xs text-emerald-100 font-medium">
             Записей за {periodTitle}: {profitTransactions.length}
           </div>
         </div>
 
-        {/* 2. BLOCK: ДОЛЖНИКИ */}
+        {/* 2. BLOCK: КАССА И СПОСОБЫ ОПЛАТЫ */}
+        <div className="bg-white/60 border border-white/30 rounded-2xl p-4 shadow-lg backdrop-blur-md space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-900/10 pb-2">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-blue-700" />
+              <span className="font-extrabold text-slate-900 text-base">Касса и способы оплаты</span>
+            </div>
+            <span className="text-xs font-black text-emerald-800">
+              Нал: {formatCurrency(periodNetCashInRegister)}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-2.5 bg-white/50 border border-white/40 rounded-xl">
+              <span className="text-slate-700 font-bold block text-[11px]">💵 Наличные (приход):</span>
+              <span className="text-sm font-black text-emerald-800">{formatCurrency(periodCashProfit)}</span>
+              {periodCashExpenses > 0 && (
+                <div className="text-[10px] text-red-700 font-semibold">Расход налом: −{formatCurrency(periodCashExpenses)}</div>
+              )}
+            </div>
+
+            <div className="p-2.5 bg-white/50 border border-white/40 rounded-xl">
+              <span className="text-slate-700 font-bold block text-[11px]">📲 Переводы (СБП):</span>
+              <span className="text-sm font-black text-blue-800">{formatCurrency(periodSbpProfit)}</span>
+            </div>
+
+            <div className="p-2.5 bg-white/50 border border-white/40 rounded-xl">
+              <span className="text-slate-700 font-bold block text-[11px]">💳 Терминал (карта):</span>
+              <span className="text-sm font-black text-purple-800">{formatCurrency(periodCardProfit)}</span>
+            </div>
+
+            <div className="p-2.5 bg-white/50 border border-white/40 rounded-xl">
+              <span className="text-slate-700 font-bold block text-[11px]">🏦 Безнал (счёт):</span>
+              <span className="text-sm font-black text-slate-900">{formatCurrency(periodBankProfit)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. BLOCK: ДОЛЖНИКИ */}
         <div className="bg-white/60 border border-white/30 rounded-2xl p-4 shadow-lg backdrop-blur-md space-y-3">
           <div className="flex items-center justify-between border-b border-slate-900/10 pb-2">
             <div className="flex items-center gap-2">
@@ -226,9 +291,32 @@ export const ReportScreen: React.FC<Props> = ({
               {activeDebtors.map(debtor => (
                 <div
                   key={debtor.name}
-                  className="p-2.5 bg-white/50 border border-white/30 rounded-xl flex items-center justify-between text-xs font-medium"
+                  className="p-2.5 bg-white/50 border border-white/30 rounded-xl flex items-center justify-between text-xs font-medium gap-2"
                 >
-                  <span className="font-bold text-slate-900 truncate pr-2">{debtor.name}</span>
+                  <div className="min-w-0">
+                    <span className="font-bold text-slate-900 block truncate">{debtor.name}</span>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      {debtor.phone && (
+                        <a
+                          href={`tel:${debtor.phone}`}
+                          className="text-[10px] text-blue-700 font-bold hover:underline"
+                        >
+                          {debtor.phone}
+                        </a>
+                      )}
+                      {debtor.dueDate && (
+                        debtor.isOverdue ? (
+                          <span className="text-[10px] text-red-700 font-black">
+                            ⚠️ Просрочен ({Math.abs(debtor.daysDiff ?? 0)} дн.)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-600 font-medium">
+                            до {new Date(debtor.dueDate).toLocaleDateString('ru-RU')}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
                   <span className="font-black text-orange-700 whitespace-nowrap">
                     {formatCurrency(debtor.remainingDebt)}
                   </span>
@@ -242,7 +330,7 @@ export const ReportScreen: React.FC<Props> = ({
           )}
         </div>
 
-        {/* 3. BLOCK: ЗАРПЛАТА */}
+        {/* 4. BLOCK: ЗАРПЛАТА */}
         <div className="bg-white/60 border border-white/30 rounded-2xl p-4 shadow-lg backdrop-blur-md space-y-3">
           <div className="flex items-center justify-between border-b border-slate-900/10 pb-2">
             <div className="flex items-center gap-2">
@@ -301,7 +389,7 @@ export const ReportScreen: React.FC<Props> = ({
           )}
         </div>
 
-        {/* 4. BLOCK: РАСХОДЫ (ТРАТЫ НА МАТЕРИАЛЫ) */}
+        {/* 5. BLOCK: РАСХОДЫ (ТРАТЫ НА МАТЕРИАЛЫ) */}
         <div className="p-4 bg-red-500/25 border border-red-300/30 rounded-2xl shadow-lg backdrop-blur-md space-y-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -353,7 +441,7 @@ export const ReportScreen: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* 5. BLOCK: ПОДРОБНЫЙ ОТЧЁТ (FULL TRANSACTIONS LOG) */}
+        {/* 6. BLOCK: ПОДРОБНЫЙ ОТЧЁТ (FULL TRANSACTIONS LOG) */}
         <div className="bg-white/60 border border-white/30 rounded-2xl p-4 shadow-lg backdrop-blur-md space-y-3">
           <div className="flex items-center justify-between border-b border-slate-900/10 pb-2">
             <div className="flex items-center gap-2">
@@ -397,10 +485,17 @@ export const ReportScreen: React.FC<Props> = ({
                     key={item.id}
                     className="p-3 bg-white/50 border border-white/30 rounded-xl space-y-1.5 text-xs"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold text-white ${badgeBg}`}>
-                        {item.categoryLabel}
-                      </span>
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold text-white ${badgeBg}`}>
+                          {item.categoryLabel}
+                        </span>
+                        {item.paymentMethod && (
+                          <span className="px-1.5 py-0.5 rounded bg-slate-900/10 text-slate-800 text-[10px] font-bold">
+                            {PAYMENT_METHODS[item.paymentMethod]?.short || 'Нал'}
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] font-medium text-slate-600">
                         {new Date(item.date).toLocaleString('ru-RU', {
                           day: '2-digit',

@@ -1,10 +1,11 @@
 import React from 'react';
-import { Palette, RefreshCw, BarChart3 } from 'lucide-react';
+import { Palette, RefreshCw, BarChart3, Database } from 'lucide-react';
 
 interface Props {
   onOpenTheme: () => void;
   onOpenUpdate: () => void;
   onOpenReport: () => void;
+  onOpenBackup: () => void;
   hasUpdateAvailable: boolean;
 }
 
@@ -12,6 +13,7 @@ export const Navbar: React.FC<Props> = ({
   onOpenTheme,
   onOpenUpdate,
   onOpenReport,
+  onOpenBackup,
   hasUpdateAvailable
 }) => {
   return (
@@ -22,6 +24,14 @@ export const Navbar: React.FC<Props> = ({
         </h1>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={onOpenBackup}
+            className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            title="Резервная копия (Бэкап)"
+          >
+            <Database className="w-5 h-5" />
+          </button>
+
           <button
             onClick={onOpenTheme}
             className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
