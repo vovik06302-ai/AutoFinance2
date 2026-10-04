@@ -169,16 +169,14 @@ const MainContent: React.FC = () => {
     const downloadUrl = updateStatus.downloadUrl;
 
     try {
-      setUpdateStatus({ status: 'downloading', progress: 10 });
+      setUpdateStatus({ status: 'downloading', progress: 5 });
       await downloadAndInstallApk(downloadUrl, (p) => {
         setUpdateStatus({ status: 'downloading', progress: p });
       });
       setUpdateStatus({ status: 'downloaded' });
-      setTimeout(() => {
-        setUpdateStatus({ status: 'up_to_date', currentVersion: CURRENT_VERSION });
-      }, 2000);
-    } catch {
-      setUpdateStatus({ status: 'error', message: 'Не удалось скачать обновление' });
+    } catch (e: any) {
+      const errMsg = e?.message || 'Не удалось скачать или запустить установку APK';
+      setUpdateStatus({ status: 'error', message: errMsg, downloadUrl });
     }
   };
 

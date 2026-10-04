@@ -54,7 +54,7 @@ export type UpdateStatus =
   | { status: 'update_available'; latestVersion: string; releaseNotes: string; downloadUrl: string }
   | { status: 'downloading'; progress: number }
   | { status: 'downloaded' }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; downloadUrl?: string };
 
 export type VoiceCommand = 
   | { kind: 'add_transaction'; type: TransactionType; amount: number; note: string; clientInfo: string }
