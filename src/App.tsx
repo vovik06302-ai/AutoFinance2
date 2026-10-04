@@ -250,7 +250,9 @@ const MainContent: React.FC = () => {
     paymentMethod: PaymentMethod = 'CASH',
     revenueCategory?: RevenueCategory,
     phone?: string,
-    dueDate?: number
+    dueDate?: number,
+    employeeId?: number,
+    employeeName?: string
   ) => {
     const newTx: TransactionEntity = {
       id: Date.now(),
@@ -262,7 +264,9 @@ const MainContent: React.FC = () => {
       paymentMethod,
       revenueCategory,
       phone,
-      dueDate
+      dueDate,
+      employeeId,
+      employeeName
     };
     setTransactions(prev => [newTx, ...prev]);
     setActiveDialogType(null);
@@ -332,23 +336,18 @@ const MainContent: React.FC = () => {
   };
 
   // Salary Actions
-  const handleAddEmployee = (name: string, salary: number, onError: (msg: string) => void) => {
-    if (!name.trim()) {
-      onError('Имя сотрудника не может быть пустым');
-      return;
-    }
-    if (salary <= 0) {
-      onError('Зарплата должна быть больше 0 ₽');
+  const handleAddEmployee = (data: Omit<EmployeeEntity, 'id'>, onError: (msg: string) => void) => {
+    if (!data.name.trim()) {
+      onError('Имя мастера не может быть пустым');
       return;
     }
 
     const newEmp: EmployeeEntity = {
-      id: Date.now(),
-      name: name.trim(),
-      salary
+      ...data,
+      id: Date.now()
     };
     setEmployees(prev => [...prev, newEmp]);
-    setToastMessage(`Добавлен сотрудник: ${name}`);
+    setToastMessage(`Добавлен мастер: ${data.name}`);
   };
 
   const handleUpdateEmployee = (updated: EmployeeEntity, onError: (msg: string) => void) => {
@@ -356,13 +355,9 @@ const MainContent: React.FC = () => {
       onError('Имя не может быть пустым');
       return;
     }
-    if (updated.salary <= 0) {
-      onError('Зарплата должна быть больше 0 ₽');
-      return;
-    }
 
     setEmployees(prev => prev.map(e => (e.id === updated.id ? updated : e)));
-    setToastMessage(`Обновлён сотрудник: ${updated.name}`);
+    setToastMessage(`Обновлён мастер: ${updated.name}`);
   };
 
   const handleDeleteEmployee = (employee: EmployeeEntity) => {
@@ -447,6 +442,7 @@ const MainContent: React.FC = () => {
           <MainScreen
             transactions={transactions}
             payouts={payouts}
+            employees={employees}
             debtorSummaries={debtorSummaries}
             updateStatus={updateStatus}
             isVoiceListening={isListening}
@@ -477,9 +473,10 @@ const MainContent: React.FC = () => {
       {activeDialogType && (
         <AddEditModal
           type={activeDialogType}
+          employees={employees}
           onClose={() => setActiveDialogType(null)}
-          onSave={(amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate) =>
-            handleAddTransaction(activeDialogType, amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate)
+          onSave={(amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate, employeeId, employeeName) =>
+            handleAddTransaction(activeDialogType, amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate, employeeId, employeeName)
           }
         />
       )}
@@ -488,9 +485,10 @@ const MainContent: React.FC = () => {
         <AddEditModal
           type={editingTransaction.type}
           existingTransaction={editingTransaction}
+          employees={employees}
           onClose={() => setEditingTransaction(null)}
-          onSave={(amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate) =>
-            handleUpdateTransaction({ ...editingTransaction, amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate })
+          onSave={(amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate, employeeId, employeeName) =>
+            handleUpdateTransaction({ ...editingTransaction, amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate, employeeId, employeeName })
           }
         />
       )}
@@ -507,6 +505,7 @@ const MainContent: React.FC = () => {
         <SalaryModal
           employees={employees}
           payouts={payouts}
+          transactions={transactions}
           onClose={() => setShowSalary(false)}
           onAddEmployee={handleAddEmployee}
           onUpdateEmployee={handleUpdateEmployee}

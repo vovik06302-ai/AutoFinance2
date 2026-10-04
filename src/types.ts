@@ -15,12 +15,21 @@ export interface TransactionEntity {
   revenueCategory?: RevenueCategory;
   phone?: string;
   dueDate?: number; // Timestamp in ms (срок возврата долга)
+  employeeId?: number; // Мастер / исполнитель
+  employeeName?: string;
 }
+
+export type SalaryType = 'PERCENTAGE' | 'FIXED' | 'HYBRID';
 
 export interface EmployeeEntity {
   id: number;
   name: string;
-  salary: number;
+  salaryType?: SalaryType; // 'PERCENTAGE' | 'FIXED' | 'HYBRID'
+  percentageRate?: number; // % от выполненных работ (например 40)
+  baseSalary?: number; // Базовый оклад в ₽
+  salary: number; // Сохраняется для совместимости
+  phone?: string;
+  role?: string; // Должность (Механик, Электрик и т.д.)
 }
 
 export interface SalaryPayoutEntity {

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { TransactionEntity, TransactionType, PaymentMethod, RevenueCategory } from '../types';
-import { PAYMENT_METHODS, REVENUE_CATEGORIES } from '../utils';
+import { TransactionEntity, TransactionType, PaymentMethod, RevenueCategory, EmployeeEntity } from '../types';
+import { PAYMENT_METHODS, REVENUE_CATEGORIES, formatCurrency } from '../utils';
 import { useAppTheme } from './ThemeContext';
 
 interface Props {
   type: TransactionType;
   existingTransaction?: TransactionEntity | null;
+  employees?: EmployeeEntity[];
   onClose: () => void;
   onSave: (
     amount: number,
@@ -14,11 +15,13 @@ interface Props {
     paymentMethod?: PaymentMethod,
     revenueCategory?: RevenueCategory,
     phone?: string,
-    dueDate?: number
+    dueDate?: number,
+    employeeId?: number,
+    employeeName?: string
   ) => void;
 }
 
-export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, onClose, onSave }) => {
+export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, employees, onClose, onSave }) => {
   const { themeConfig } = useAppTheme();
   const [amountText, setAmountText] = useState(existingTransaction?.amount.toString() || '');
   const [noteText, setNoteText] = useState(existingTransaction?.note || '');
@@ -31,6 +34,7 @@ export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, onClo
       ? new Date(existingTransaction.dueDate).toISOString().slice(0, 10)
       : ''
   );
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | undefined>(existingTransaction?.employeeId);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,6 +50,7 @@ export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, onClo
           ? new Date(existingTransaction.dueDate).toISOString().slice(0, 10)
           : ''
       );
+      setSelectedEmployeeId(existingTransaction.employeeId);
     }
   }, [existingTransaction]);
 
@@ -69,6 +74,7 @@ export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, onClo
     }
 
     const parsedDueDate = dueDateText ? new Date(dueDateText).getTime() : undefined;
+    const selectedEmployee = employees?.find(emp => emp.id === selectedEmployeeId);
 
     onSave(
       parsed,
@@ -77,9 +83,14 @@ export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, onClo
       paymentMethod,
       type === 'PROFIT' ? revenueCategory : undefined,
       type === 'DEBTOR' ? phoneText.trim() || undefined : undefined,
-      type === 'DEBTOR' ? parsedDueDate : undefined
+      type === 'DEBTOR' ? parsedDueDate : undefined,
+      type === 'PROFIT' ? selectedEmployeeId : undefined,
+      type === 'PROFIT' ? selectedEmployee?.name : undefined
     );
   };
+
+  const selectedEmployee = employees?.find(emp => emp.id === selectedEmployeeId);
+  const parsedAmountForPreview = parseFloat(amountText.replace(',', '.')) || 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
@@ -114,6 +125,60 @@ export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, onClo
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Master / Employee selector for PROFIT */}
+          {type === 'PROFIT' && employees && employees.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
+                Мастер / Исполнитель работ
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedEmployeeId(undefined)}
+                  className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
+                    selectedEmployeeId === undefined
+                      ? 'bg-slate-900 text-white border-slate-950 shadow'
+                      : 'bg-white/60 hover:bg-white text-slate-800 border-slate-300'
+                  }`}
+                >
+                  Без мастера (общий)
+                </button>
+                {employees.map(emp => {
+                  const isSel = selectedEmployeeId === emp.id;
+                  const label = emp.percentageRate ? `${emp.name} (${emp.percentageRate}%)` : emp.name;
+                  return (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() => setSelectedEmployeeId(emp.id)}
+                      className={`py-1.5 px-2 rounded-xl text-xs font-bold border transition-all truncate text-center ${
+                        isSel
+                          ? 'bg-blue-700 text-white border-blue-800 shadow'
+                          : 'bg-white/60 hover:bg-white text-slate-800 border-slate-300'
+                      }`}
+                      title={emp.name}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Instant calculation preview for master */}
+              {selectedEmployee && parsedAmountForPreview > 0 && (
+                <div className="mt-1.5 text-[11px] font-bold text-blue-900 bg-blue-50/70 p-2 rounded-lg border border-blue-200">
+                  {selectedEmployee.percentageRate ? (
+                    <span>
+                      👨‍🔧 Начисление мастеру ({selectedEmployee.percentageRate}%): +{formatCurrency(Math.round(parsedAmountForPreview * (selectedEmployee.percentageRate / 100)))}
+                    </span>
+                  ) : (
+                    <span>👨‍🔧 Мастер на окладе ({formatCurrency(selectedEmployee.salary)})</span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

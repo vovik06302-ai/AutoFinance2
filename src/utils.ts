@@ -1,4 +1,4 @@
-import { TransactionEntity, SalaryPayoutEntity, PaymentMethod, RevenueCategory } from './types';
+import { TransactionEntity, SalaryPayoutEntity, PaymentMethod, RevenueCategory, EmployeeEntity } from './types';
 
 export function formatCurrency(val: number): string {
   const formatted = new Intl.NumberFormat('ru-RU', {
@@ -57,6 +57,8 @@ export interface UnifiedFeedItem {
   phone?: string;
   dueDate?: number;
   isOverdue?: boolean;
+  employeeId?: number;
+  employeeName?: string;
 }
 
 export function getUnifiedFeed(
@@ -101,7 +103,9 @@ export function getUnifiedFeed(
         clientInfo: t.clientInfo,
         originalTx: t,
         paymentMethod,
-        revenueCategory
+        revenueCategory,
+        employeeId: t.employeeId,
+        employeeName: t.employeeName
       });
     } else if (t.type === 'DEBTOR') {
       const isOverdue = !!t.dueDate && t.dueDate > 0 && Date.now() > new Date(t.dueDate).setHours(23, 59, 59, 999);
@@ -249,5 +253,60 @@ export function calculateFinancialSummary(
     salaryTotal,
     grandTotal,
     netTotal
+  };
+}
+
+export interface EmployeeEarningsSummary {
+  employee: EmployeeEntity;
+  assignedTransactions: TransactionEntity[];
+  pieceRateEarned: number; // Начислено по сделке (%)
+  baseSalary: number; // Фиксированный оклад
+  totalEarned: number; // Итого начислено
+  totalPaid: number; // Выплачено
+  balanceDue: number; // Остаток к выплате
+}
+
+export function calculateEmployeeEarnings(
+  employee: EmployeeEntity,
+  transactions: TransactionEntity[],
+  payouts: SalaryPayoutEntity[],
+  filterFn?: (timestamp: number) => boolean
+): EmployeeEarningsSummary {
+  const isInPeriod = filterFn || (() => true);
+
+  // Profit transactions assigned to this employee in period
+  const assignedTxs = transactions.filter(
+    t => t.type === 'PROFIT' && t.employeeId === employee.id && isInPeriod(t.date)
+  );
+
+  const rate = (employee.percentageRate || 0) / 100;
+  let pieceRateEarned = 0;
+
+  if (employee.salaryType === 'PERCENTAGE' || employee.salaryType === 'HYBRID') {
+    pieceRateEarned = assignedTxs.reduce((sum, t) => {
+      return sum + Math.round(t.amount * rate);
+    }, 0);
+  }
+
+  let baseSalary = 0;
+  if (employee.salaryType === 'FIXED' || employee.salaryType === 'HYBRID') {
+    baseSalary = employee.baseSalary || employee.salary || 0;
+  }
+
+  const totalEarned = pieceRateEarned + baseSalary;
+
+  // Payouts for this employee in period
+  const empPayouts = payouts.filter(p => p.employeeId === employee.id && isInPeriod(p.date));
+  const totalPaid = empPayouts.reduce((sum, p) => sum + p.amount, 0);
+  const balanceDue = Math.max(0, totalEarned - totalPaid);
+
+  return {
+    employee,
+    assignedTransactions: assignedTxs,
+    pieceRateEarned,
+    baseSalary,
+    totalEarned,
+    totalPaid,
+    balanceDue
   };
 }

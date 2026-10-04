@@ -1,12 +1,32 @@
-import React from 'react';
-import { TransactionEntity, TransactionType, DebtorSummaryGroup, SalaryPayoutEntity, UpdateStatus } from '../types';
+import React, { useState } from 'react';
+import { TransactionEntity, TransactionType, DebtorSummaryGroup, SalaryPayoutEntity, UpdateStatus, EmployeeEntity, PaymentMethod } from '../types';
 import { formatCurrency, calculateFinancialSummary, getUnifiedFeed, PAYMENT_METHODS, REVENUE_CATEGORIES } from '../utils';
 import { TotalSummaryCard } from './TotalSummaryCard';
-import { TrendingUp, ArrowDownRight, PlusCircle, UserSearch, BadgeCheck, Mic, Edit2, Trash2, CheckCircle, RefreshCw, Banknote, Phone, Clock, AlertTriangle } from 'lucide-react';
+import {
+  TrendingUp,
+  ArrowDownRight,
+  PlusCircle,
+  UserSearch,
+  BadgeCheck,
+  Mic,
+  Edit2,
+  Trash2,
+  CheckCircle,
+  RefreshCw,
+  Banknote,
+  Phone,
+  Clock,
+  AlertTriangle,
+  Search,
+  Filter,
+  X,
+  RotateCcw
+} from 'lucide-react';
 
 interface Props {
   transactions: TransactionEntity[];
   payouts: SalaryPayoutEntity[];
+  employees?: EmployeeEntity[];
   debtorSummaries: DebtorSummaryGroup[];
   updateStatus: UpdateStatus;
   isVoiceListening: boolean;
@@ -24,6 +44,7 @@ interface Props {
 export const MainScreen: React.FC<Props> = ({
   transactions,
   payouts,
+  employees = [],
   debtorSummaries,
   updateStatus,
   isVoiceListening,
@@ -38,7 +59,78 @@ export const MainScreen: React.FC<Props> = ({
   onMarkPaid
 }) => {
   const summary = calculateFinancialSummary(transactions, payouts, debtorSummaries);
-  const feedItems = getUnifiedFeed(transactions, payouts);
+  const allFeedItems = getUnifiedFeed(transactions, payouts);
+
+  // Search and Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'PROFIT' | 'EXPENSE' | 'DEBTOR' | 'SALARY'>('ALL');
+  const [paymentFilter, setPaymentFilter] = useState<'ALL' | PaymentMethod>('ALL');
+  const [masterFilter, setMasterFilter] = useState<'ALL' | number>('ALL');
+  const [showExtendedFilters, setShowExtendedFilters] = useState(false);
+
+  // Category counts
+  const countProfit = allFeedItems.filter(i => i.category === 'PROFIT' || i.category === 'REPAYMENT').length;
+  const countExpense = allFeedItems.filter(i => i.category === 'EXPENSE').length;
+  const countDebtor = allFeedItems.filter(i => i.category === 'DEBTOR').length;
+  const countSalary = allFeedItems.filter(i => i.category === 'SALARY').length;
+
+  // Filtered feed
+  const filteredFeedItems = allFeedItems.filter(item => {
+    // 1. Text Search
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchNote = (item.note || '').toLowerCase().includes(q);
+      const matchClient = (item.clientInfo || '').toLowerCase().includes(q);
+      const matchEmployee = (item.employeeName || '').toLowerCase().includes(q);
+      const matchPhone = (item.phone || '').toLowerCase().includes(q);
+      const matchAmount = item.amount.toString().includes(q);
+      if (!matchNote && !matchClient && !matchEmployee && !matchPhone && !matchAmount) {
+        return false;
+      }
+    }
+
+    // 2. Category Filter
+    if (categoryFilter !== 'ALL') {
+      if (categoryFilter === 'PROFIT') {
+        if (item.category !== 'PROFIT' && item.category !== 'REPAYMENT') return false;
+      } else {
+        if (item.category !== categoryFilter) return false;
+      }
+    }
+
+    // 3. Payment Method Filter
+    if (paymentFilter !== 'ALL') {
+      if (item.paymentMethod !== paymentFilter) return false;
+    }
+
+    // 4. Master Filter
+    if (masterFilter !== 'ALL') {
+      if (item.employeeId !== masterFilter) return false;
+    }
+
+    return true;
+  });
+
+  const filteredProfitSum = filteredFeedItems
+    .filter(i => i.category === 'PROFIT' || i.category === 'REPAYMENT')
+    .reduce((s, i) => s + i.amount, 0);
+
+  const filteredExpenseSum = filteredFeedItems
+    .filter(i => i.category === 'EXPENSE' || i.category === 'SALARY')
+    .reduce((s, i) => s + i.amount, 0);
+
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    categoryFilter !== 'ALL' ||
+    paymentFilter !== 'ALL' ||
+    masterFilter !== 'ALL';
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('ALL');
+    setPaymentFilter('ALL');
+    setMasterFilter('ALL');
+  };
 
   return (
     <div className="max-w-md mx-auto px-4 pt-4 pb-20 space-y-4 relative">
@@ -140,28 +232,234 @@ export const MainScreen: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 3. RECENT TRANSACTIONS LIST */}
-      <div className="space-y-2">
+      {/* 3. RECENT TRANSACTIONS LIST & FILTERS */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between pt-2">
-          <h2 className="text-base font-bold text-slate-100 drop-shadow-sm">
-            Все записи ({feedItems.length})
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-slate-100 drop-shadow-sm">
+              Все записи
+            </h2>
+            <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-bold">
+              {filteredFeedItems.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowExtendedFilters(!showExtendedFilters)}
+              className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                showExtendedFilters || paymentFilter !== 'ALL' || masterFilter !== 'ALL'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'bg-white/20 text-slate-200 hover:bg-white/30'
+              }`}
+              title="Фильтры по кассам и мастерам"
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>Фильтры</span>
+            </button>
+            <button
+              onClick={onOpenReport}
+              className="text-xs font-bold text-blue-300 hover:text-white underline"
+            >
+              Подробный отчёт
+            </button>
+          </div>
+        </div>
+
+        {/* Search input */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Поиск по авто, клиенту, номеру или работе..."
+            className="w-full pl-9 pr-8 py-2 bg-white/80 border border-white/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 text-xs shadow-sm font-medium placeholder-slate-500 backdrop-blur-md"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Category Filter Chips */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
           <button
-            onClick={onOpenReport}
-            className="text-xs font-bold text-blue-300 hover:text-white underline"
+            onClick={() => setCategoryFilter('ALL')}
+            className={`py-1 px-2.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+              categoryFilter === 'ALL'
+                ? 'bg-slate-900 text-white shadow'
+                : 'bg-white/40 hover:bg-white/60 text-slate-900 border border-white/20'
+            }`}
           >
-            Подробный отчёт
+            Все ({allFeedItems.length})
+          </button>
+          <button
+            onClick={() => setCategoryFilter('PROFIT')}
+            className={`py-1 px-2.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+              categoryFilter === 'PROFIT'
+                ? 'bg-emerald-700 text-white shadow'
+                : 'bg-white/40 hover:bg-white/60 text-emerald-950 border border-white/20'
+            }`}
+          >
+            Прибыль ({countProfit})
+          </button>
+          <button
+            onClick={() => setCategoryFilter('EXPENSE')}
+            className={`py-1 px-2.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+              categoryFilter === 'EXPENSE'
+                ? 'bg-red-700 text-white shadow'
+                : 'bg-white/40 hover:bg-white/60 text-red-950 border border-white/20'
+            }`}
+          >
+            Расходники ({countExpense})
+          </button>
+          <button
+            onClick={() => setCategoryFilter('DEBTOR')}
+            className={`py-1 px-2.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+              categoryFilter === 'DEBTOR'
+                ? 'bg-orange-700 text-white shadow'
+                : 'bg-white/40 hover:bg-white/60 text-orange-950 border border-white/20'
+            }`}
+          >
+            Должники ({countDebtor})
+          </button>
+          <button
+            onClick={() => setCategoryFilter('SALARY')}
+            className={`py-1 px-2.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+              categoryFilter === 'SALARY'
+                ? 'bg-purple-700 text-white shadow'
+                : 'bg-white/40 hover:bg-white/60 text-purple-950 border border-white/20'
+            }`}
+          >
+            Зарплата ({countSalary})
           </button>
         </div>
 
-        {feedItems.length === 0 ? (
-          <div className="text-center py-12 bg-white/60 border border-white/20 rounded-2xl p-6 text-slate-800 font-medium text-sm backdrop-blur-md shadow-lg">
-            Записей пока нет.<br />
-            Нажмите на кнопку выше или воспользуйтесь голосовой командой.
+        {/* Extended filters (Payment Method & Master) */}
+        {showExtendedFilters && (
+          <div className="p-3 bg-white/70 border border-white/40 rounded-xl space-y-2.5 backdrop-blur-md shadow-sm text-xs animate-in fade-in zoom-in-95">
+            {/* Payment Method filter */}
+            <div>
+              <span className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1">
+                Касса / Способ оплаты:
+              </span>
+              <div className="flex gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setPaymentFilter('ALL')}
+                  className={`py-1 px-2 rounded-lg font-bold ${
+                    paymentFilter === 'ALL'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-white/60 text-slate-800 hover:bg-white border border-slate-300'
+                  }`}
+                >
+                  Все кассы
+                </button>
+                {(['CASH', 'SBP', 'CARD', 'BANK_ACCOUNT'] as PaymentMethod[]).map(pm => {
+                  const info = PAYMENT_METHODS[pm];
+                  const isSel = paymentFilter === pm;
+                  return (
+                    <button
+                      key={pm}
+                      onClick={() => setPaymentFilter(pm)}
+                      className={`py-1 px-2 rounded-lg font-bold flex items-center gap-1 ${
+                        isSel
+                          ? 'bg-blue-700 text-white shadow'
+                          : 'bg-white/60 text-slate-800 hover:bg-white border border-slate-300'
+                      }`}
+                    >
+                      <span>{info.icon}</span>
+                      <span>{info.short}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Master filter (if employees exist) */}
+            {employees.length > 0 && (
+              <div>
+                <span className="block text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1">
+                  Мастер / Исполнитель:
+                </span>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setMasterFilter('ALL')}
+                    className={`py-1 px-2 rounded-lg font-bold ${
+                      masterFilter === 'ALL'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-white/60 text-slate-800 hover:bg-white border border-slate-300'
+                    }`}
+                  >
+                    Все мастера
+                  </button>
+                  {employees.map(emp => {
+                    const isSel = masterFilter === emp.id;
+                    return (
+                      <button
+                        key={emp.id}
+                        onClick={() => setMasterFilter(emp.id)}
+                        className={`py-1 px-2 rounded-lg font-bold flex items-center gap-1 ${
+                          isSel
+                            ? 'bg-purple-700 text-white shadow'
+                            : 'bg-white/60 text-slate-800 hover:bg-white border border-slate-300'
+                        }`}
+                      >
+                        <span>👨‍🔧</span>
+                        <span>{emp.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Results summary bar if filter active */}
+        {hasActiveFilters && (
+          <div className="p-2 bg-blue-500/25 border border-blue-300/40 rounded-xl flex items-center justify-between text-xs backdrop-blur-md">
+            <div className="text-white font-medium text-[11px]">
+              <span>Найдено: <strong>{filteredFeedItems.length}</strong> из {allFeedItems.length}</span>
+              {(filteredProfitSum > 0 || filteredExpenseSum > 0) && (
+                <span className="ml-2 font-bold">
+                  {filteredProfitSum > 0 && <span className="text-emerald-200">+{formatCurrency(filteredProfitSum)} </span>}
+                  {filteredExpenseSum > 0 && <span className="text-red-200">−{formatCurrency(filteredExpenseSum)}</span>}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={resetFilters}
+              className="py-0.5 px-2 bg-white/20 hover:bg-white/30 text-white font-bold rounded-lg text-[10px] flex items-center gap-1 transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Сбросить</span>
+            </button>
+          </div>
+        )}
+
+        {filteredFeedItems.length === 0 ? (
+          <div className="text-center py-10 bg-white/60 border border-white/20 rounded-2xl p-6 text-slate-800 font-medium text-xs backdrop-blur-md shadow-lg space-y-2">
+            <div>
+              {hasActiveFilters
+                ? 'По вашему фильтру или поисковому запросу ничего не найдено.'
+                : 'Записей пока нет.'}
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
+                className="py-1.5 px-3 bg-blue-700 text-white font-bold rounded-xl text-xs shadow"
+              >
+                Сбросить фильтры
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-2.5">
-            {feedItems.map(item => {
+            {filteredFeedItems.map(item => {
               const isProfit = item.category === 'PROFIT' || item.category === 'REPAYMENT';
               const isSalary = item.category === 'SALARY';
               const isExpense = item.category === 'EXPENSE';
@@ -197,6 +495,12 @@ export const MainScreen: React.FC<Props> = ({
                       {item.paymentMethod && (
                         <span className="px-1.5 py-0.5 rounded bg-slate-900/10 text-slate-800 text-[10px] font-bold">
                           {PAYMENT_METHODS[item.paymentMethod]?.short || 'Нал'}
+                        </span>
+                      )}
+                      {item.employeeName && (
+                        <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-300 text-[10px] font-bold flex items-center gap-0.5">
+                          <span>👨‍🔧</span>
+                          <span>{item.employeeName}</span>
                         </span>
                       )}
                       {item.dueDate && (

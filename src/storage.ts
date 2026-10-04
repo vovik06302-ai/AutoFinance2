@@ -19,7 +19,9 @@ const INITIAL_TRANSACTIONS: TransactionEntity[] = [
     clientInfo: 'Toyota Camry A777AA77',
     date: Date.now() - 3600000 * 5,
     paymentMethod: 'CARD',
-    revenueCategory: 'SERVICE'
+    revenueCategory: 'SERVICE',
+    employeeId: 1,
+    employeeName: 'Алексей (Механик)'
   },
   {
     id: 102,
@@ -44,8 +46,26 @@ const INITIAL_TRANSACTIONS: TransactionEntity[] = [
 ];
 
 const INITIAL_EMPLOYEES: EmployeeEntity[] = [
-  { id: 1, name: 'Алексей (Механик)', salary: 70000 },
-  { id: 2, name: 'Михаил (Электрик)', salary: 85000 }
+  {
+    id: 1,
+    name: 'Алексей (Механик)',
+    salaryType: 'PERCENTAGE',
+    percentageRate: 40,
+    baseSalary: 0,
+    salary: 70000,
+    role: 'Механик',
+    phone: '+7 916 111-22-33'
+  },
+  {
+    id: 2,
+    name: 'Михаил (Электрик)',
+    salaryType: 'PERCENTAGE',
+    percentageRate: 45,
+    baseSalary: 0,
+    salary: 85000,
+    role: 'Электрик',
+    phone: '+7 916 444-55-66'
+  }
 ];
 
 export function loadTransactions(): TransactionEntity[] {
@@ -77,7 +97,14 @@ export function loadEmployees(): EmployeeEntity[] {
       saveEmployees(INITIAL_EMPLOYEES);
       return INITIAL_EMPLOYEES;
     }
-    return JSON.parse(raw);
+    const list: EmployeeEntity[] = JSON.parse(raw);
+    return list.map(emp => ({
+      ...emp,
+      salaryType: emp.salaryType || (emp.percentageRate ? 'PERCENTAGE' : 'FIXED'),
+      percentageRate: emp.percentageRate !== undefined ? emp.percentageRate : 40,
+      baseSalary: emp.baseSalary !== undefined ? emp.baseSalary : emp.salary,
+      salary: emp.salary || 0
+    }));
   } catch (e) {
     return INITIAL_EMPLOYEES;
   }
