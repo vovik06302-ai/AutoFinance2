@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TransactionEntity, TransactionType, DebtorSummaryGroup, SalaryPayoutEntity, UpdateStatus, EmployeeEntity, PaymentMethod } from '../types';
 import { formatCurrency, calculateFinancialSummary, getUnifiedFeed, PAYMENT_METHODS, REVENUE_CATEGORIES } from '../utils';
 import { TotalSummaryCard } from './TotalSummaryCard';
+import { useAppTheme } from './ThemeContext';
 import {
   TrendingUp,
   ArrowDownRight,
@@ -132,6 +133,24 @@ export const MainScreen: React.FC<Props> = ({
     setMasterFilter('ALL');
   };
 
+  const { themeConfig, isLightMode, cardStyle } = useAppTheme();
+
+  const cardContainerClass = cardStyle === 'SOLID'
+    ? isLightMode
+      ? 'bg-white border-2 border-slate-300 shadow-md text-slate-900'
+      : 'bg-slate-900 border-2 border-slate-700/80 shadow-xl text-slate-100'
+    : isLightMode
+    ? 'bg-white/85 border border-slate-200/80 shadow-md backdrop-blur-md text-slate-900'
+    : 'bg-white/60 border border-white/30 shadow-lg backdrop-blur-md text-slate-900';
+
+  const sectionHeadingClass = isLightMode
+    ? 'text-slate-900 font-black'
+    : 'text-slate-100 font-bold drop-shadow-sm';
+
+  const sectionSubHeadingClass = isLightMode
+    ? 'text-slate-800 font-black'
+    : 'text-slate-200 font-extrabold drop-shadow-sm';
+
   return (
     <div className="max-w-md mx-auto px-4 pt-4 pb-20 space-y-4 relative">
       {/* 1. TOTAL SUMMARY CARD */}
@@ -176,7 +195,11 @@ export const MainScreen: React.FC<Props> = ({
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={onOpenDebtorSearch}
-          className="p-3 bg-white/60 hover:bg-white/80 border border-white/20 text-slate-900 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md backdrop-blur-md"
+          className={`p-3 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md ${
+            isLightMode
+              ? 'bg-white hover:bg-slate-50 border border-slate-300 text-slate-900'
+              : 'bg-white/60 hover:bg-white/80 border border-white/20 text-slate-900 backdrop-blur-md'
+          }`}
         >
           <UserSearch className="w-4 h-4 text-orange-600" />
           <span>Должники</span>
@@ -184,7 +207,11 @@ export const MainScreen: React.FC<Props> = ({
 
         <button
           onClick={onOpenSalary}
-          className="p-3 bg-purple-500/30 hover:bg-purple-500/40 border border-purple-200/30 text-white rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md backdrop-blur-md"
+          className={`p-3 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-md ${
+            isLightMode
+              ? 'bg-purple-700 hover:bg-purple-800 text-white border border-purple-800'
+              : 'bg-purple-500/30 hover:bg-purple-500/40 border border-purple-200/30 text-white backdrop-blur-md'
+          }`}
         >
           <BadgeCheck className="w-4 h-4 text-purple-200" />
           <span>Зарплата</span>
@@ -193,41 +220,53 @@ export const MainScreen: React.FC<Props> = ({
 
       {/* 2. THREE QUICK ACTION BUTTONS */}
       <div>
-        <div className="text-xs font-extrabold text-slate-200 uppercase tracking-wider mb-2 drop-shadow-sm">
+        <div className={`text-xs uppercase tracking-wider mb-2 ${sectionSubHeadingClass}`}>
           Быстрый ввод
         </div>
         <div className="grid grid-cols-3 gap-2">
           {/* Profit Button */}
           <button
             onClick={() => onOpenAddModal('PROFIT')}
-            className="p-3 bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-300/30 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-md group backdrop-blur-md"
+            className={`p-3 border rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-md group ${
+              isLightMode
+                ? 'bg-emerald-50 hover:bg-emerald-100/80 border-emerald-300 text-emerald-950'
+                : 'bg-emerald-500/25 hover:bg-emerald-500/35 border-emerald-300/30 backdrop-blur-md'
+            }`}
           >
             <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <span className="text-xs font-bold text-emerald-200">Прибыль</span>
+            <span className={`text-xs font-bold ${isLightMode ? 'text-emerald-950' : 'text-emerald-200'}`}>Прибыль</span>
           </button>
 
           {/* Expense Button */}
           <button
             onClick={() => onOpenAddModal('EXPENSE')}
-            className="p-3 bg-red-500/25 hover:bg-red-500/35 border border-red-300/30 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-md group backdrop-blur-md"
+            className={`p-3 border rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-md group ${
+              isLightMode
+                ? 'bg-red-50 hover:bg-red-100/80 border-red-300 text-red-950'
+                : 'bg-red-500/25 hover:bg-red-500/35 border-red-300/30 backdrop-blur-md'
+            }`}
           >
             <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow">
               <ArrowDownRight className="w-5 h-5" />
             </div>
-            <span className="text-xs font-bold text-red-200">Расходники</span>
+            <span className={`text-xs font-bold ${isLightMode ? 'text-red-950' : 'text-red-200'}`}>Расходники</span>
           </button>
 
           {/* Debtor Button */}
           <button
             onClick={() => onOpenAddModal('DEBTOR')}
-            className="p-3 bg-orange-500/25 hover:bg-orange-500/35 border border-orange-300/30 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-md group backdrop-blur-md"
+            className={`p-3 border rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-md group ${
+              isLightMode
+                ? 'bg-orange-50 hover:bg-orange-100/80 border-orange-300 text-orange-950'
+                : 'bg-orange-500/25 hover:bg-orange-500/35 border-orange-300/30 backdrop-blur-md'
+            }`}
           >
             <div className="w-9 h-9 rounded-full bg-orange-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow">
               <PlusCircle className="w-5 h-5" />
             </div>
-            <span className="text-xs font-bold text-orange-200">Должники</span>
+            <span className={`text-xs font-bold ${isLightMode ? 'text-orange-950' : 'text-orange-200'}`}>Должники</span>
           </button>
         </div>
       </div>
@@ -236,10 +275,12 @@ export const MainScreen: React.FC<Props> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-slate-100 drop-shadow-sm">
+            <h2 className={`text-base ${sectionHeadingClass}`}>
               Все записи
             </h2>
-            <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-bold">
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              isLightMode ? 'bg-slate-200 text-slate-800' : 'bg-white/20 text-white'
+            }`}>
               {filteredFeedItems.length}
             </span>
           </div>
@@ -249,6 +290,8 @@ export const MainScreen: React.FC<Props> = ({
               className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
                 showExtendedFilters || paymentFilter !== 'ALL' || masterFilter !== 'ALL'
                   ? 'bg-blue-600 text-white shadow'
+                  : isLightMode
+                  ? 'bg-slate-200 hover:bg-slate-300 text-slate-800'
                   : 'bg-white/20 text-slate-200 hover:bg-white/30'
               }`}
               title="Фильтры по кассам и мастерам"
@@ -258,7 +301,9 @@ export const MainScreen: React.FC<Props> = ({
             </button>
             <button
               onClick={onOpenReport}
-              className="text-xs font-bold text-blue-300 hover:text-white underline"
+              className={`text-xs font-bold underline ${
+                isLightMode ? 'text-blue-700 hover:text-blue-900' : 'text-blue-300 hover:text-white'
+              }`}
             >
               Подробный отчёт
             </button>
@@ -484,7 +529,7 @@ export const MainScreen: React.FC<Props> = ({
               return (
                 <div
                   key={item.id}
-                  className="p-3.5 bg-white/60 border border-white/30 rounded-xl shadow-lg space-y-2 hover:bg-white/70 transition-colors backdrop-blur-md"
+                  className={`p-3.5 rounded-xl space-y-2 transition-all ${cardContainerClass}`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 flex-wrap">

@@ -40,10 +40,24 @@ export interface SalaryPayoutEntity {
   date: number;
 }
 
-export type AppTheme = 'BLUE' | 'GREEN' | 'PURPLE' | 'ORANGE' | 'RED';
+export type AppTheme =
+  | 'BLUE'
+  | 'CARBON'
+  | 'ORANGE'
+  | 'GREEN'
+  | 'NEON'
+  | 'PURPLE'
+  | 'MONOCHROME'
+  | 'RED';
+
+export type BackgroundMode = 'STARFIELD' | 'DARK' | 'LIGHT';
+export type CardStyle = 'GLASS' | 'SOLID';
 
 export interface ThemeConfig {
+  id: AppTheme;
   label: string;
+  subtitle: string;
+  badge: string;
   primaryHex: string;
   primaryClass: string;
   bgLightClass: string;

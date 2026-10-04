@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { formatCurrency } from '../utils';
 import { Wallet, ChevronDown, ChevronUp } from 'lucide-react';
+import { useAppTheme } from './ThemeContext';
 
 interface Props {
   grandTotal: number;
@@ -34,9 +35,18 @@ export const TotalSummaryCard: React.FC<Props> = ({
   netCashInRegister = 0
 }) => {
   const [showCashDetails, setShowCashDetails] = useState(false);
+  const { cardStyle, isLightMode } = useAppTheme();
+
+  const containerClass = cardStyle === 'SOLID'
+    ? isLightMode
+      ? 'bg-white border-2 border-slate-300 shadow-lg text-slate-900'
+      : 'bg-slate-900 border-2 border-slate-700 shadow-xl text-slate-100'
+    : isLightMode
+    ? 'bg-white/85 border border-slate-200/80 shadow-md backdrop-blur-md text-slate-900'
+    : 'bg-white/60 border border-white/30 shadow-xl backdrop-blur-md text-slate-900';
 
   return (
-    <div className="p-4 rounded-2xl border border-white/30 shadow-xl backdrop-blur-md bg-white/60 text-slate-900 space-y-3">
+    <div className={`p-4 rounded-2xl transition-all space-y-3 ${containerClass}`}>
       {/* 1. GRAND TOTAL SECTION */}
       <div>
         <div className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1">

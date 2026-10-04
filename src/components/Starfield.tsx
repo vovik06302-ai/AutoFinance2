@@ -15,7 +15,7 @@ interface Star {
 
 export const Starfield: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { themeConfig } = useAppTheme();
+  const { themeConfig, bgMode, animateBackground } = useAppTheme();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -24,8 +24,8 @@ export const Starfield: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Respect reduced motion preference
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const canAnimate = animateBackground && !prefersReducedMotion;
 
     let animFrameId: number | null = null;
     let isHolding = false;
@@ -33,14 +33,13 @@ export const Starfield: React.FC = () => {
     let targetSpeed = 0;
     let isLoopRunning = false;
 
-    const numStars = 180;
+    const numStars = bgMode === 'STARFIELD' ? 180 : 0;
     const maxZ = 1000;
     const fov = 250;
 
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
-    // Color palette for stars based on theme accent
     const getStarColor = (accentHex: string) => {
       const colors = ['#ffffff', '#f0f9ff', '#e0f2fe', '#bae6fd', accentHex];
       return colors[Math.floor(Math.random() * colors.length)];
@@ -72,15 +71,61 @@ export const Starfield: React.FC = () => {
 
     window.addEventListener('resize', handleResize);
 
-    // Render single frame
     const renderFrame = () => {
       if (!ctx) return;
 
-      // Deep cosmic dark background fill
+      if (bgMode === 'LIGHT') {
+        // Light clean daytime background
+        const lightGrad = ctx.createLinearGradient(0, 0, 0, height);
+        lightGrad.addColorStop(0, '#f8fafc');
+        lightGrad.addColorStop(1, '#e2e8f0');
+        ctx.fillStyle = lightGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Subtle accent aura at top right
+        const aura = ctx.createRadialGradient(
+          width * 0.8,
+          height * 0.15,
+          40,
+          width * 0.8,
+          height * 0.15,
+          width * 0.6
+        );
+        aura.addColorStop(0, `${themeConfig.primaryHex}18`);
+        aura.addColorStop(1, 'transparent');
+        ctx.fillStyle = aura;
+        ctx.fillRect(0, 0, width, height);
+        return;
+      }
+
+      if (bgMode === 'DARK') {
+        // Deep matte carbon/graphite background
+        const darkGrad = ctx.createLinearGradient(0, 0, 0, height);
+        darkGrad.addColorStop(0, '#0f172a');
+        darkGrad.addColorStop(1, '#020617');
+        ctx.fillStyle = darkGrad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Soft ambient radial glow with theme color
+        const glow = ctx.createRadialGradient(
+          width / 2,
+          height * 0.35,
+          60,
+          width / 2,
+          height * 0.35,
+          width * 0.8
+        );
+        glow.addColorStop(0, `${themeConfig.primaryHex}1A`);
+        glow.addColorStop(1, 'transparent');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, width, height);
+        return;
+      }
+
+      // STARFIELD MODE
       ctx.fillStyle = '#090d16';
       ctx.fillRect(0, 0, width, height);
 
-      // Subtle radial glow at center
       const gradient = ctx.createRadialGradient(
         width / 2,
         height / 2,
@@ -100,11 +145,9 @@ export const Starfield: React.FC = () => {
       for (let i = 0; i < stars.length; i++) {
         const star = stars[i];
 
-        // Update star depth during motion
         star.pz = star.z;
         star.z -= currentSpeed;
 
-        // Reset if star moves past camera or out of bounds
         if (star.z <= 1) {
           star.z = maxZ;
           star.pz = maxZ;
@@ -116,16 +159,13 @@ export const Starfield: React.FC = () => {
         const px = star.x * k + cx;
         const py = star.y * k + cy;
 
-        // Skip if outside viewport
         if (px < -20 || px > width + 20 || py < -20 || py > height + 20) {
           continue;
         }
 
-        // Twinkle factor when idle
         star.twinklePhase += star.twinkleSpeed;
         const twinkleAlpha = star.alpha * (0.8 + 0.2 * Math.sin(star.twinklePhase));
 
-        // Draw star streak during flight vs point when idle
         if (currentSpeed > 0.2) {
           const pk = fov / star.pz;
           const prevPx = star.x * pk + cx;
@@ -142,7 +182,6 @@ export const Starfield: React.FC = () => {
           ctx.stroke();
           ctx.globalAlpha = 1.0;
         } else {
-          // Point star when idle
           ctx.beginPath();
           ctx.arc(px, py, star.size * (1 - star.z / maxZ) * 1.5 + 0.5, 0, Math.PI * 2);
           ctx.fillStyle = star.color;
@@ -153,15 +192,13 @@ export const Starfield: React.FC = () => {
       }
     };
 
-    // Animation loop
+    // Animation loop (only for STARFIELD when canAnimate is true)
     const tick = () => {
-      // Smooth lerp speed transition
       currentSpeed += (targetSpeed - currentSpeed) * 0.12;
 
-      // Stop loop when speed drops below threshold and not holding
       if (!isHolding && currentSpeed < 0.05) {
         currentSpeed = 0;
-        renderFrame(); // Final static frame
+        renderFrame();
         isLoopRunning = false;
         animFrameId = null;
         return;
@@ -172,13 +209,12 @@ export const Starfield: React.FC = () => {
     };
 
     const startLoop = () => {
-      if (!isLoopRunning && !document.hidden) {
+      if (!isLoopRunning && !document.hidden && canAnimate && bgMode === 'STARFIELD') {
         isLoopRunning = true;
         animFrameId = requestAnimationFrame(tick);
       }
     };
 
-    // Check if target is an interactive button / link
     const isInteractive = (target: EventTarget | null): boolean => {
       if (!target || !(target instanceof HTMLElement)) return false;
       return !!target.closest(
@@ -187,10 +223,10 @@ export const Starfield: React.FC = () => {
     };
 
     const handlePointerDown = (e: PointerEvent) => {
-      if (prefersReducedMotion) return;
+      if (!canAnimate || bgMode !== 'STARFIELD') return;
       if (isInteractive(e.target)) {
         isHolding = true;
-        targetSpeed = 16.0; // Warp speed!
+        targetSpeed = 16.0;
         startLoop();
       }
     };
@@ -217,7 +253,6 @@ export const Starfield: React.FC = () => {
       }
     };
 
-    // Document level event delegation
     document.addEventListener('pointerdown', handlePointerDown, { passive: true });
     document.addEventListener('pointerup', handlePointerRelease, { passive: true });
     document.addEventListener('pointercancel', handlePointerRelease, { passive: true });
@@ -238,13 +273,15 @@ export const Starfield: React.FC = () => {
         cancelAnimationFrame(animFrameId);
       }
     };
-  }, [themeConfig]);
+  }, [themeConfig, bgMode, animateBackground]);
 
   return (
     <canvas
       ref={canvasRef}
       className="fixed inset-0 w-full h-full pointer-events-none z-[-10]"
-      style={{ background: '#090d16' }}
+      style={{
+        background: bgMode === 'LIGHT' ? '#f8fafc' : bgMode === 'DARK' ? '#0f172a' : '#090d16'
+      }}
     />
   );
 };

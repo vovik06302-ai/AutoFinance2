@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TransactionEntity, EmployeeEntity, SalaryPayoutEntity, DebtorSummaryGroup } from '../types';
 import { formatCurrency, MONTH_NAMES_RU, calculateFinancialSummary, getUnifiedFeed, PAYMENT_METHODS, REVENUE_CATEGORIES } from '../utils';
 import { exportAndShareCsv } from '../csvExporter';
+import { useAppTheme } from './ThemeContext';
 import { ArrowLeft, Download, ChevronLeft, ChevronRight, Calendar, TrendingUp, CreditCard, Users, ArrowDownRight, FileText, Wallet } from 'lucide-react';
 
 interface Props {
@@ -113,15 +114,25 @@ export const ReportScreen: React.FC<Props> = ({
     );
   };
 
+  const { themeConfig, isLightMode } = useAppTheme();
+
   return (
     <div className="min-h-screen pb-16">
       {/* Top Bar */}
-      <div className="bg-slate-900/60 backdrop-blur-md border-b border-white/10 text-white sticky top-0 z-30 shadow-md">
+      <div
+        className={`backdrop-blur-md border-b sticky top-0 z-30 shadow-md transition-colors ${
+          isLightMode
+            ? 'bg-white/85 border-slate-200 text-slate-900 shadow-slate-200/50'
+            : 'bg-slate-900/60 border-white/10 text-white shadow-black/40'
+        }`}
+      >
         <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={onNavigateBack}
-              className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+              className={`p-1.5 rounded-lg transition-colors ${
+                isLightMode ? 'hover:bg-slate-100 text-slate-800' : 'hover:bg-white/10 text-white'
+              }`}
               title="Назад"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -131,7 +142,11 @@ export const ReportScreen: React.FC<Props> = ({
 
           <button
             onClick={handleExportCsv}
-            className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"
+            className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold ${
+              isLightMode
+                ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
+                : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+            }`}
             title="Экспорт в CSV"
           >
             <Download className="w-4 h-4" />

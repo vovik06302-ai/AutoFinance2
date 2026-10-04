@@ -1,4 +1,4 @@
-import { TransactionEntity, EmployeeEntity, SalaryPayoutEntity, AppTheme, DebtorSummaryGroup, BackupData } from './types';
+import { TransactionEntity, EmployeeEntity, SalaryPayoutEntity, AppTheme, BackgroundMode, CardStyle, DebtorSummaryGroup, BackupData } from './types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -7,7 +7,10 @@ const STORAGE_KEYS = {
   TRANSACTIONS: 'autofinance_transactions',
   EMPLOYEES: 'autofinance_employees',
   SALARY_PAYOUTS: 'autofinance_salary_payouts',
-  THEME: 'autofinance_theme'
+  THEME: 'autofinance_theme',
+  BG_MODE: 'autofinance_bg_mode',
+  CARD_STYLE: 'autofinance_card_style',
+  ANIMATE_BG: 'autofinance_animate_bg'
 };
 
 const INITIAL_TRANSACTIONS: TransactionEntity[] = [
@@ -136,19 +139,69 @@ export function saveSalaryPayouts(items: SalaryPayoutEntity[]): void {
   }
 }
 
+const VALID_THEMES: AppTheme[] = ['BLUE', 'CARBON', 'ORANGE', 'GREEN', 'NEON', 'PURPLE', 'MONOCHROME', 'RED'];
+
 export function loadTheme(): AppTheme {
   try {
     const theme = localStorage.getItem(STORAGE_KEYS.THEME) as AppTheme;
-    if (theme && ['BLUE', 'GREEN', 'PURPLE', 'ORANGE', 'RED'].includes(theme)) {
+    if (theme && VALID_THEMES.includes(theme)) {
       return theme;
     }
   } catch (e) {}
-  return 'BLUE';
+  return 'CARBON';
 }
 
 export function saveTheme(theme: AppTheme): void {
   try {
     localStorage.setItem(STORAGE_KEYS.THEME, theme);
+  } catch (e) {}
+}
+
+export function loadBgMode(): BackgroundMode {
+  try {
+    const mode = localStorage.getItem(STORAGE_KEYS.BG_MODE) as BackgroundMode;
+    if (mode && ['STARFIELD', 'DARK', 'LIGHT'].includes(mode)) {
+      return mode;
+    }
+  } catch (e) {}
+  return 'STARFIELD';
+}
+
+export function saveBgMode(mode: BackgroundMode): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.BG_MODE, mode);
+  } catch (e) {}
+}
+
+export function loadCardStyle(): CardStyle {
+  try {
+    const style = localStorage.getItem(STORAGE_KEYS.CARD_STYLE) as CardStyle;
+    if (style && ['GLASS', 'SOLID'].includes(style)) {
+      return style;
+    }
+  } catch (e) {}
+  return 'GLASS';
+}
+
+export function saveCardStyle(style: CardStyle): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CARD_STYLE, style);
+  } catch (e) {}
+}
+
+export function loadAnimateBg(): boolean {
+  try {
+    const val = localStorage.getItem(STORAGE_KEYS.ANIMATE_BG);
+    if (val !== null) {
+      return val === 'true';
+    }
+  } catch (e) {}
+  return true;
+}
+
+export function saveAnimateBg(animate: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ANIMATE_BG, animate ? 'true' : 'false');
   } catch (e) {}
 }
 
