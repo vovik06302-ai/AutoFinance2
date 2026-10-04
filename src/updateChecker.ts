@@ -2,9 +2,11 @@ import { UpdateStatus } from './types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
+import pkg from '../package.json';
+
 // Requirement 7: Single constant for GITHUB_REPO
 export const GITHUB_REPO = "vovik06302-ai/AutoFinance2";
-export const CURRENT_VERSION = "v1.2.0";
+export const CURRENT_VERSION = pkg.version;
 
 export async function checkForAppUpdates(): Promise<UpdateStatus> {
   try {

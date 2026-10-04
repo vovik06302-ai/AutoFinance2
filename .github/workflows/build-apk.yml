@@ -29,6 +29,15 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Sync package.json version from tag
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          if [ -n "$TAG_NAME" ]; then
+            CLEAN_VERSION="${TAG_NAME#v}"
+            echo "Updating package.json version to $CLEAN_VERSION"
+            node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8')); pkg.version = '$CLEAN_VERSION'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
+          fi
+
       - name: Build Web Dist
         run: npm run build
 
