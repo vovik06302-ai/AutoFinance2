@@ -1,58 +1,30 @@
 import { TransactionEntity, SalaryPayoutEntity } from './types';
+import { getUnifiedFeed } from './utils';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
+export interface SummaryTotals {
+  profit: number;
+  debtors: number;
+  materialExpenses: number;
+  grandTotal: number;
+  salaryTotal: number;
+  netTotal: number;
+}
+
 export async function exportAndShareCsv(
   transactions: TransactionEntity[],
   payouts: SalaryPayoutEntity[] = [],
-  periodTitle: string = 'Отчёт'
+  periodTitle: string = 'Отчёт',
+  summaryTotals?: SummaryTotals
 ) {
   const BOM = '\uFEFF';
-  const header = 'ID;Дата;Тип;Сумма (₽);Описание/Заметка;Клиент/Авто\n';
+  const header = 'ID;Дата;Тип;Сумма (₽);Описание/Заметка;Клиент/Сотрудник\n';
 
-  // Sort all records chronologically descending
-  const combined: {
-    id: number;
-    date: number;
-    typeStr: string;
-    amount: number;
-    note: string;
-    clientInfo: string;
-  }[] = [];
+  const feedItems = getUnifiedFeed(transactions, payouts);
 
-  transactions.forEach(t => {
-    let typeStr = 'Прибыль';
-    if (t.type === 'EXPENSE') typeStr = 'Расходники';
-    if (t.type === 'DEBTOR') typeStr = 'Долг';
-    if (t.type === 'PROFIT' && t.note.toLowerCase().includes('погашение долга')) {
-      typeStr = 'Погашение долга';
-    }
-
-    combined.push({
-      id: t.id,
-      date: t.date,
-      typeStr,
-      amount: t.amount,
-      note: t.note,
-      clientInfo: t.clientInfo
-    });
-  });
-
-  payouts.forEach(p => {
-    combined.push({
-      id: p.id,
-      date: p.date,
-      typeStr: 'Выплата зарплаты',
-      amount: p.amount,
-      note: `Выплата зарплаты (${p.employeeName})`,
-      clientInfo: p.employeeName
-    });
-  });
-
-  combined.sort((a, b) => b.date - a.date);
-
-  const rows = combined.map(item => {
+  const rows = feedItems.map(item => {
     const dateStr = new Date(item.date).toLocaleString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
@@ -64,10 +36,24 @@ export async function exportAndShareCsv(
     const noteEscaped = (item.note || '').replace(/;/g, ',').replace(/\n/g, ' ');
     const clientEscaped = (item.clientInfo || '').replace(/;/g, ',').replace(/\n/g, ' ');
 
-    return `${item.id};${dateStr};${item.typeStr};${item.amount};${noteEscaped};${clientEscaped}`;
+    return `${item.originalId};${dateStr};${item.categoryLabel};${item.amount};${noteEscaped};${clientEscaped}`;
   });
 
-  const csvContent = BOM + header + rows.join('\n');
+  let summaryRowsStr = '';
+  if (summaryTotals) {
+    summaryRowsStr = [
+      '',
+      `--- ИТОГИ ЗА ПЕРИОД: ${periodTitle} ---`,
+      `;;Прибыль;${summaryTotals.profit};;`,
+      `;;Должники (непогашено);${summaryTotals.debtors};;`,
+      `;;Расходники (материалы);${summaryTotals.materialExpenses};;`,
+      `;;Общий итог;${summaryTotals.grandTotal};;`,
+      `;;Зарплата сотрудников (всего);${summaryTotals.salaryTotal};;`,
+      `;;Чистый итог;${summaryTotals.netTotal};;`
+    ].join('\n');
+  }
+
+  const csvContent = BOM + header + rows.join('\n') + (summaryRowsStr ? '\n' + summaryRowsStr : '');
   const safeTitle = periodTitle.toLowerCase().replace(/[^a-z0-9а-яё]/gi, '_');
   const fileName = `report_${safeTitle}_${new Date().toISOString().slice(0, 10)}.csv`;
 

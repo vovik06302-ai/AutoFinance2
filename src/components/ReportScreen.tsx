@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { TransactionEntity, EmployeeEntity, SalaryPayoutEntity, DebtorSummaryGroup } from '../types';
-import { formatCurrency, MONTH_NAMES_RU } from '../utils';
+import { formatCurrency, MONTH_NAMES_RU, calculateFinancialSummary, getUnifiedFeed } from '../utils';
 import { exportAndShareCsv } from '../csvExporter';
-import { ArrowLeft, Download, ChevronLeft, ChevronRight, Calendar, TrendingUp, CreditCard, Users, ArrowDownRight, FileText, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Download, ChevronLeft, ChevronRight, Calendar, TrendingUp, CreditCard, Users, ArrowDownRight, FileText } from 'lucide-react';
 
 interface Props {
   transactions: TransactionEntity[];
@@ -48,59 +48,65 @@ export const ReportScreen: React.FC<Props> = ({
     }
   };
 
-  // Filter functions for selected period
   const isInPeriod = (timestamp: number) => {
     if (isAllTime) return true;
     const d = new Date(timestamp);
     return d.getFullYear() === selectedYear && d.getMonth() === selectedMonth;
   };
 
-  // Filtered transactions for the chosen month/period
-  const periodTransactions = transactions.filter(t => isInPeriod(t.date));
-  const periodPayouts = payouts.filter(p => isInPeriod(p.date));
+  const periodTitle = isAllTime
+    ? 'За всё время'
+    : `${MONTH_NAMES_RU[selectedMonth]} ${selectedYear} г.`;
 
-  // 1. Profit for period (includes PROFIT transactions, including debt write-offs/repayments)
-  const profitTransactions = periodTransactions.filter(t => t.type === 'PROFIT');
-  const periodProfit = profitTransactions.reduce((sum, t) => sum + t.amount, 0);
+  // Calculated financial summaries for period
+  const {
+    profit: periodProfit,
+    activeDebtorsSum,
+    materialExpenses: periodMaterialExpenses,
+    salaryTotal: periodSalaryTotal,
+    grandTotal: periodGrandTotal,
+    netTotal: periodNetTotal
+  } = calculateFinancialSummary(transactions, payouts, debtorSummaries, isInPeriod);
 
-  // 2. Debtors statistics
-  // Unpaid active debt total across system
   const activeDebtors = debtorSummaries.filter(d => d.remainingDebt > 0);
-  const totalUnpaidDebt = activeDebtors.reduce((sum, d) => sum + d.remainingDebt, 0);
+  const totalUnpaidDebt = activeDebtorsSum;
 
-  // Debt repayments in selected period
+  const profitTransactions = transactions.filter(t => t.type === 'PROFIT' && isInPeriod(t.date));
   const periodDebtRepayments = profitTransactions.filter(
     t => t.note.toLowerCase().includes('погашение долга') || t.note.toLowerCase().includes('списание долга')
   );
   const periodRepaidDebtTotal = periodDebtRepayments.reduce((sum, t) => sum + t.amount, 0);
 
-  // 3. Salary total in selected period
-  const periodSalaryTotal = periodPayouts.reduce((sum, p) => sum + p.amount, 0);
+  const periodPayouts = payouts.filter(p => isInPeriod(p.date));
 
-  // 4. Expenses total in selected period
-  const periodExpenses = periodTransactions.filter(t => t.type === 'EXPENSE').reduce((sum, t) => sum + t.amount, 0);
-
-  // Grand Total Net Cash Flow for Period = Profit - Expenses
-  const periodNetTotal = periodProfit - periodExpenses;
-
-  // Period display title
-  const periodTitle = isAllTime
-    ? 'За всё время'
-    : `${MONTH_NAMES_RU[selectedMonth]} ${selectedYear} г.`;
+  // Unified operations log
+  const feedItems = getUnifiedFeed(transactions, payouts, isInPeriod);
 
   const handleExportCsv = () => {
-    exportAndShareCsv(periodTransactions, periodPayouts, periodTitle);
+    exportAndShareCsv(
+      transactions.filter(t => isInPeriod(t.date)),
+      periodPayouts,
+      periodTitle,
+      {
+        profit: periodProfit,
+        debtors: totalUnpaidDebt,
+        materialExpenses: periodMaterialExpenses,
+        grandTotal: periodGrandTotal,
+        salaryTotal: periodSalaryTotal,
+        netTotal: periodNetTotal
+      }
+    );
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 pb-16">
+    <div className="min-h-screen pb-16">
       {/* Top Bar */}
-      <div className="bg-slate-800 text-white sticky top-0 z-30 shadow-md">
+      <div className="bg-slate-900/60 backdrop-blur-md border-b border-white/10 text-white sticky top-0 z-30 shadow-md">
         <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={onNavigateBack}
-              className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors"
+              className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
               title="Назад"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -110,7 +116,7 @@ export const ReportScreen: React.FC<Props> = ({
 
           <button
             onClick={handleExportCsv}
-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"
+            className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold"
             title="Экспорт в CSV"
           >
             <Download className="w-4 h-4" />
@@ -121,25 +127,25 @@ export const ReportScreen: React.FC<Props> = ({
 
       <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
         {/* Month / Period Selector Bar */}
-        <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+        <div className="bg-white/60 border border-white/30 rounded-2xl p-3 shadow-lg backdrop-blur-md flex items-center justify-between gap-2">
           {!isAllTime ? (
             <div className="flex items-center justify-between w-full">
               <button
                 onClick={handlePrevMonth}
-                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors"
+                className="p-2 bg-white/50 hover:bg-white/80 text-slate-900 rounded-xl transition-colors shadow-sm"
                 title="Предыдущий месяц"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
               <div className="flex items-center gap-2 font-black text-slate-900 text-base">
-                <Calendar className="w-4 h-4 text-blue-600" />
+                <Calendar className="w-4 h-4 text-blue-700" />
                 <span>{MONTH_NAMES_RU[selectedMonth]} {selectedYear}</span>
               </div>
 
               <button
                 onClick={handleNextMonth}
-                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors"
+                className="p-2 bg-white/50 hover:bg-white/80 text-slate-900 rounded-xl transition-colors shadow-sm"
                 title="Следующий месяц"
               >
                 <ChevronRight className="w-5 h-5" />
@@ -147,7 +153,7 @@ export const ReportScreen: React.FC<Props> = ({
             </div>
           ) : (
             <div className="flex items-center justify-center w-full py-1 text-slate-900 font-extrabold text-base gap-2">
-              <Calendar className="w-5 h-5 text-blue-600" />
+              <Calendar className="w-5 h-5 text-blue-700" />
               <span>За всё время</span>
             </div>
           )}
@@ -157,7 +163,7 @@ export const ReportScreen: React.FC<Props> = ({
             className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors shadow-sm ${
               isAllTime
                 ? 'bg-blue-700 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-white/70 hover:bg-white text-slate-900'
             }`}
           >
             {isAllTime ? 'По месяцам' : 'За всё время'}
@@ -165,47 +171,47 @@ export const ReportScreen: React.FC<Props> = ({
         </div>
 
         {/* 1. BLOCK: ПРИБЫЛЬ */}
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl shadow-sm space-y-1">
+        <div className="p-4 bg-emerald-500/25 border border-emerald-300/30 rounded-2xl shadow-lg backdrop-blur-md space-y-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
-              <span className="font-bold text-emerald-950 text-base">Прибыль</span>
+              <TrendingUp className="w-5 h-5 text-emerald-300" />
+              <span className="font-bold text-white text-base">Прибыль</span>
             </div>
-            <span className="text-2xl font-black text-emerald-700">
+            <span className="text-2xl font-black text-emerald-300 drop-shadow">
               {formatCurrency(periodProfit)}
             </span>
           </div>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-emerald-100 font-medium">
             Записей за {periodTitle}: {profitTransactions.length}
           </div>
         </div>
 
         {/* 2. BLOCK: ДОЛЖНИКИ */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div className="bg-white/60 border border-white/30 rounded-2xl p-4 shadow-lg backdrop-blur-md space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-900/10 pb-2">
             <div className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-orange-600" />
-              <span className="font-bold text-slate-900 text-base">Должники</span>
+              <span className="font-extrabold text-slate-900 text-base">Должники</span>
             </div>
             <button
               onClick={onOpenDebtorsModal}
-              className="text-xs font-bold text-orange-600 hover:text-orange-800 underline"
+              className="text-xs font-extrabold text-orange-700 hover:text-orange-900 underline"
             >
               Управление
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl">
-              <span className="text-slate-500 block text-[11px]">Непогашенные долги:</span>
-              <span className="text-base font-black text-orange-600">
+            <div className="p-3 bg-orange-500/20 border border-orange-300/30 rounded-xl backdrop-blur-sm">
+              <span className="text-slate-800 font-bold block text-[11px]">Непогашенные долги:</span>
+              <span className="text-base font-black text-orange-800">
                 {formatCurrency(totalUnpaidDebt)}
               </span>
             </div>
 
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-              <span className="text-slate-500 block text-[11px]">Списано/погашено за период:</span>
-              <span className="text-base font-black text-emerald-700">
+            <div className="p-3 bg-emerald-500/20 border border-emerald-300/30 rounded-xl backdrop-blur-sm">
+              <span className="text-slate-800 font-bold block text-[11px]">Списано/погашено за период:</span>
+              <span className="text-base font-black text-emerald-800">
                 {formatCurrency(periodRepaidDebtTotal)}
               </span>
             </div>
@@ -214,41 +220,41 @@ export const ReportScreen: React.FC<Props> = ({
           {/* List of active debtors with balances */}
           {activeDebtors.length > 0 ? (
             <div className="space-y-1.5 pt-1">
-              <div className="text-xs font-bold text-slate-600">
+              <div className="text-xs font-bold text-slate-800">
                 Список активных должников ({activeDebtors.length}):
               </div>
               {activeDebtors.map(debtor => (
                 <div
                   key={debtor.name}
-                  className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs"
+                  className="p-2.5 bg-white/50 border border-white/30 rounded-xl flex items-center justify-between text-xs font-medium"
                 >
-                  <span className="font-bold text-slate-800 truncate pr-2">{debtor.name}</span>
-                  <span className="font-black text-orange-600 whitespace-nowrap">
+                  <span className="font-bold text-slate-900 truncate pr-2">{debtor.name}</span>
+                  <span className="font-black text-orange-700 whitespace-nowrap">
                     {formatCurrency(debtor.remainingDebt)}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-xs text-slate-500 text-center py-2">
+            <div className="text-xs font-bold text-slate-700 text-center py-2">
               Нет активных должников
             </div>
           )}
         </div>
 
         {/* 3. BLOCK: ЗАРПЛАТА */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div className="bg-white/60 border border-white/30 rounded-2xl p-4 shadow-lg backdrop-blur-md space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-900/10 pb-2">
             <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-red-600" />
-              <span className="font-bold text-slate-900 text-base">Зарплата</span>
+              <Users className="w-5 h-5 text-purple-700" />
+              <span className="font-extrabold text-slate-900 text-base">Зарплата сотрудников</span>
             </div>
-            <span className="text-xl font-black text-red-700">
+            <span className="text-xl font-black text-purple-900">
               {formatCurrency(periodSalaryTotal)}
             </span>
           </div>
 
-          <div className="text-xs text-slate-500">
+          <div className="text-xs font-bold text-slate-700">
             Всего выплат за {periodTitle}: {periodPayouts.length}
           </div>
 
@@ -260,14 +266,14 @@ export const ReportScreen: React.FC<Props> = ({
                 const empTotal = empPayouts.reduce((sum, p) => sum + p.amount, 0);
 
                 return (
-                  <div key={emp.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                  <div key={emp.id} className="p-3 bg-white/50 border border-white/30 rounded-xl space-y-1.5">
                     <div className="flex items-center justify-between font-bold text-xs">
                       <span className="text-slate-900">{emp.name}</span>
-                      <span className="text-red-700">{formatCurrency(empTotal)}</span>
+                      <span className="text-purple-900 font-extrabold">{formatCurrency(empTotal)}</span>
                     </div>
 
                     {empPayouts.length > 0 ? (
-                      <div className="space-y-1 text-[11px] text-slate-600 pl-2 border-l-2 border-red-200">
+                      <div className="space-y-1 text-[11px] font-medium text-slate-800 pl-2 border-l-2 border-purple-400">
                         {empPayouts.map(p => (
                           <div key={p.id} className="flex justify-between">
                             <span>
@@ -277,135 +283,149 @@ export const ReportScreen: React.FC<Props> = ({
                                 year: 'numeric'
                               })}
                             </span>
-                            <span className="font-semibold text-slate-800">
+                            <span className="font-extrabold text-slate-900">
                               {formatCurrency(p.amount)}
                             </span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-[11px] text-slate-400 italic">Выплат в этом периоде не было</div>
+                      <div className="text-[11px] text-slate-600 italic">Выплат в этом периоде не было</div>
                     )}
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="text-xs text-slate-500 text-center py-2">Сотрудники не добавлены</div>
+            <div className="text-xs text-slate-700 font-medium text-center py-2">Сотрудники не добавлены</div>
           )}
         </div>
 
-        {/* 4. BLOCK: РАСХОДЫ (ТРАТЫ) */}
-        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl shadow-sm space-y-1">
+        {/* 4. BLOCK: РАСХОДЫ (ТРАТЫ НА МАТЕРИАЛЫ) */}
+        <div className="p-4 bg-red-500/25 border border-red-300/30 rounded-2xl shadow-lg backdrop-blur-md space-y-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ArrowDownRight className="w-5 h-5 text-red-600" />
-              <span className="font-bold text-red-950 text-base">Расходы (траты)</span>
+              <ArrowDownRight className="w-5 h-5 text-red-300" />
+              <span className="font-bold text-white text-base">Расходники (материалы)</span>
             </div>
-            <span className="text-2xl font-black text-red-700">
-              {formatCurrency(periodExpenses)}
+            <span className="text-2xl font-black text-red-300 drop-shadow">
+              {formatCurrency(periodMaterialExpenses)}
             </span>
           </div>
-          <div className="text-xs text-slate-500">
-            Записей расходов за {periodTitle}: {periodTransactions.filter(t => t.type === 'EXPENSE').length}
+          <div className="text-xs text-red-100 font-medium">
+            Записей материалов за {periodTitle}: {feedItems.filter(i => i.category === 'EXPENSE').length}
           </div>
         </div>
 
-        {/* GRAND TOTAL CASH FLOW CARD */}
-        <div className="p-5 bg-slate-900 text-white rounded-2xl shadow-md space-y-2">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            ЧИСТЫЙ ИТОГ ЗА ПЕРИОД (Прибыль − Расходы)
+        {/* GRAND TOTAL & NET TOTAL CASH FLOW CARD */}
+        <div className="p-5 bg-slate-900/75 border border-white/20 text-white rounded-2xl shadow-xl backdrop-blur-md space-y-3">
+          <div className="text-xs font-black uppercase tracking-wider text-slate-300">
+            Итоговый финансовый результат ({periodTitle})
           </div>
-          <div className={`text-3xl font-black ${periodNetTotal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {formatCurrency(periodNetTotal)}
+
+          <div className="space-y-2 text-xs pt-2 border-t border-slate-700/60 font-medium">
+            <div className="flex justify-between items-center text-slate-200">
+              <span className="font-bold">Прибыль:</span>
+              <span className="font-black text-emerald-400">+{formatCurrency(periodProfit)}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-slate-200">
+              <span className="font-bold">Расходники (материалы):</span>
+              <span className="font-black text-red-400">− {formatCurrency(periodMaterialExpenses)}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-slate-200 pt-1 border-t border-slate-700/40">
+              <span className="font-bold">Общий итог (Прибыль − Расходники):</span>
+              <span className="font-extrabold text-emerald-300">{formatCurrency(periodGrandTotal)}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-slate-200">
+              <span className="font-bold">Зарплата (всего за период):</span>
+              <span className="font-black text-purple-300">− {formatCurrency(periodSalaryTotal)}</span>
+            </div>
+
+            <div className="flex justify-between items-center pt-2 border-t border-slate-700/60 text-sm">
+              <span className="font-black uppercase tracking-wider text-white">Чистый итог:</span>
+              <span className={`text-2xl font-black ${periodNetTotal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {formatCurrency(periodNetTotal)}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* 5. BLOCK: ПОДРОБНЫЙ ОТЧЁТ (FULL TRANSACTIONS LOG) */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div className="bg-white/60 border border-white/30 rounded-2xl p-4 shadow-lg backdrop-blur-md space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-900/10 pb-2">
             <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-600" />
-              <span className="font-bold text-slate-900 text-base">Подробный отчёт</span>
+              <FileText className="w-5 h-5 text-blue-700" />
+              <span className="font-extrabold text-slate-900 text-base">Подробный отчёт</span>
             </div>
-            <span className="text-xs font-bold text-slate-500">
-              {periodTransactions.length} операций
+            <span className="text-xs font-extrabold text-slate-800">
+              {feedItems.length} операций
             </span>
           </div>
 
-          {periodTransactions.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-xs">
+          {feedItems.length === 0 ? (
+            <div className="text-center py-8 text-slate-800 font-medium text-xs">
               За {periodTitle} нет записанных операций.
             </div>
           ) : (
             <div className="space-y-2">
-              {periodTransactions
-                .sort((a, b) => b.date - a.date)
-                .map(item => {
-                  const isProfit = item.type === 'PROFIT';
-                  const isExpense = item.type === 'EXPENSE';
-                  const isDebtor = item.type === 'DEBTOR';
+              {feedItems.map(item => {
+                const isProfit = item.category === 'PROFIT' || item.category === 'REPAYMENT';
+                const isSalary = item.category === 'SALARY';
+                const isExpense = item.category === 'EXPENSE';
 
-                  const isRepayment = isProfit && item.note.toLowerCase().includes('погашение долга');
+                const colorClass = isSalary
+                  ? 'text-purple-900'
+                  : isProfit
+                  ? 'text-emerald-800'
+                  : isExpense
+                  ? 'text-red-800'
+                  : 'text-orange-800';
 
-                  const colorClass = isRepayment
-                    ? 'text-emerald-700'
-                    : isProfit
-                    ? 'text-emerald-700'
-                    : isExpense
-                    ? 'text-red-700'
-                    : 'text-orange-600';
+                const badgeBg = isSalary
+                  ? 'bg-purple-600'
+                  : isProfit
+                  ? 'bg-emerald-600'
+                  : isExpense
+                  ? 'bg-red-600'
+                  : 'bg-orange-600';
 
-                  const badgeBg = isRepayment
-                    ? 'bg-emerald-600'
-                    : isProfit
-                    ? 'bg-emerald-500'
-                    : isExpense
-                    ? 'bg-red-500'
-                    : 'bg-orange-500';
+                return (
+                  <div
+                    key={item.id}
+                    className="p-3 bg-white/50 border border-white/30 rounded-xl space-y-1.5 text-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold text-white ${badgeBg}`}>
+                        {item.categoryLabel}
+                      </span>
+                      <span className="text-[10px] font-medium text-slate-600">
+                        {new Date(item.date).toLocaleString('ru-RU', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
 
-                  const typeTag = isRepayment
-                    ? 'Погашение долга'
-                    : isProfit
-                    ? 'Прибыль'
-                    : isExpense
-                    ? 'Расходники'
-                    : 'Долг';
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold text-white ${badgeBg}`}>
-                          {typeTag}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          {new Date(item.date).toLocaleString('ru-RU', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-slate-900">{item.note || 'Без описания'}</div>
+                        {item.clientInfo && (
+                          <div className="text-[11px] font-medium text-slate-700">{item.clientInfo}</div>
+                        )}
                       </div>
-
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-bold text-slate-900">{item.note || 'Без описания'}</div>
-                          {item.clientInfo && (
-                            <div className="text-[11px] text-slate-500">{item.clientInfo}</div>
-                          )}
-                        </div>
-                        <div className={`font-black text-sm whitespace-nowrap ${colorClass}`}>
-                          {isExpense ? '- ' : '+ '}{formatCurrency(item.amount)}
-                        </div>
+                      <div className={`font-black text-sm whitespace-nowrap ${colorClass}`}>
+                        {isProfit ? '+ ' : '- '}{formatCurrency(item.amount)}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -413,7 +433,7 @@ export const ReportScreen: React.FC<Props> = ({
         {/* Export CSV Button */}
         <button
           onClick={handleExportCsv}
-          className="w-full py-3.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-2xl shadow transition-colors flex items-center justify-center gap-2 text-sm"
+          className="w-full py-3.5 bg-blue-700/90 hover:bg-blue-800 text-white font-bold rounded-2xl shadow-xl transition-colors flex items-center justify-center gap-2 text-sm backdrop-blur-md border border-blue-400/30"
         >
           <Download className="w-5 h-5" />
           <span>Экспортировать отчёт в CSV ({periodTitle})</span>

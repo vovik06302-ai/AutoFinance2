@@ -1,7 +1,10 @@
 @import "tailwindcss";
 
 @layer base {
-  body {
+  html, body, #root {
+    background-color: transparent !important;
+    background: transparent !important;
+    color: #0f172a;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     -webkit-user-select: none;

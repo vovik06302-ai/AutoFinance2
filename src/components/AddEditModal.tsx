@@ -47,13 +47,13 @@ export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
-        <h2 className="text-xl font-bold text-slate-800 mb-4">{title}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+      <div className="bg-white/70 backdrop-blur-lg border border-white/40 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 text-slate-900">
+        <h2 className="text-xl font-extrabold text-slate-900 mb-4">{title}</h2>
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Сумма (₽)</label>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Сумма (₽)</label>
             <input
               type="number"
               step="any"
@@ -63,31 +63,31 @@ export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, onClo
                 setError(null);
               }}
               placeholder="0"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-900"
+              className="w-full px-3 py-2 bg-white/85 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-900 text-sm shadow-sm"
               autoFocus
             />
-            {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+            {error && <p className="text-xs text-red-600 font-bold mt-1">{error}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">{noteLabel}</label>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">{noteLabel}</label>
             <input
               type="text"
               value={noteText}
               onChange={e => setNoteText(e.target.value)}
               placeholder="Например: Замена масла"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+              className="w-full px-3 py-2 bg-white/85 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm shadow-sm font-medium"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">{clientLabel}</label>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">{clientLabel}</label>
             <input
               type="text"
               value={clientInfoText}
               onChange={e => setClientInfoText(e.target.value)}
               placeholder="Например: Иван Ford Focus A123AA"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+              className="w-full px-3 py-2 bg-white/85 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm shadow-sm font-medium"
             />
           </div>
 
@@ -95,13 +95,13 @@ export const AddEditModal: React.FC<Props> = ({ type, existingTransaction, onClo
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition-colors"
+              className="px-4 py-2 text-slate-800 bg-white/60 hover:bg-white/80 rounded-xl font-bold text-xs transition-colors shadow-sm"
             >
               Отмена
             </button>
             <button
               type="submit"
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${themeConfig.primaryClass}`}
+              className={`px-4 py-2 rounded-xl font-bold text-xs transition-colors shadow ${themeConfig.primaryClass}`}
             >
               Сохранить
             </button>

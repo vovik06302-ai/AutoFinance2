@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { EmployeeEntity, SalaryPayoutEntity } from '../types';
+import { formatCurrency } from '../utils';
 import { BadgeCheck, Plus, Edit2, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react';
 
 interface Props {
@@ -24,46 +25,42 @@ export const SalaryModal: React.FC<Props> = ({
   const [showAddEditSubModal, setShowAddEditSubModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<EmployeeEntity | null>(null);
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(val);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+      <div className="bg-white/70 backdrop-blur-lg border border-white/40 rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col text-slate-900">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-900/10 mb-4">
           <div className="flex items-center gap-2">
             <BadgeCheck className="w-6 h-6 text-red-600" />
-            <h2 className="text-xl font-bold text-slate-800">Учёт зарплат</h2>
+            <h2 className="text-xl font-extrabold text-slate-900">Учёт зарплат</h2>
           </div>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <button onClick={onClose} className="p-1 text-slate-500 hover:text-slate-800 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Total Salary Summary Across All Employees */}
         {employees.length > 0 && (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-4 space-y-1.5 shadow-sm">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="bg-white/60 border border-white/30 rounded-xl p-3.5 mb-4 space-y-1.5 shadow-sm backdrop-blur-sm">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-800">
               Общая зарплата по всем сотрудникам
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
-                <span className="text-slate-500 block">Общий оклад</span>
-                <span className="font-bold text-slate-900 text-sm">
+                <span className="text-slate-700 font-medium block">Общий оклад</span>
+                <span className="font-extrabold text-slate-900 text-sm">
                   {formatCurrency(employees.reduce((sum, e) => sum + e.salary, 0))}
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block">Выдано всего</span>
-                <span className="font-bold text-emerald-700 text-sm">
+                <span className="text-slate-700 font-medium block">Выдано всего</span>
+                <span className="font-extrabold text-emerald-800 text-sm">
                   {formatCurrency(payouts.reduce((sum, p) => sum + p.amount, 0))}
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block">К выплате</span>
-                <span className="font-bold text-red-700 text-sm">
+                <span className="text-slate-700 font-medium block">К выплате</span>
+                <span className="font-extrabold text-red-800 text-sm">
                   {formatCurrency(
                     employees.reduce((sum, e) => {
                       const paid = payouts
@@ -93,7 +90,7 @@ export const SalaryModal: React.FC<Props> = ({
         {/* Employee List */}
         <div className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0">
           {employees.length === 0 ? (
-            <div className="text-center py-10 text-slate-500 text-sm">
+            <div className="text-center py-10 text-slate-700 font-bold text-xs">
               Список сотрудников пуст.<br />
               Нажмите «Добавить сотрудника», чтобы начать.
             </div>
@@ -105,7 +102,6 @@ export const SalaryModal: React.FC<Props> = ({
                   key={employee.id}
                   employee={employee}
                   payouts={empPayouts}
-                  formatCurrency={formatCurrency}
                   onEdit={() => {
                     setEditingEmployee(employee);
                     setShowAddEditSubModal(true);
@@ -118,10 +114,10 @@ export const SalaryModal: React.FC<Props> = ({
           )}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+        <div className="mt-4 pt-3 border-t border-slate-900/10 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 text-slate-800 bg-white/60 hover:bg-white/80 rounded-xl text-xs font-bold transition-colors shadow-sm"
           >
             Закрыть
           </button>
@@ -150,7 +146,6 @@ export const SalaryModal: React.FC<Props> = ({
 interface EmployeeCardProps {
   employee: EmployeeEntity;
   payouts: SalaryPayoutEntity[];
-  formatCurrency: (val: number) => string;
   onEdit: () => void;
   onDelete: () => void;
   onAddPayout: (amount: number, onError: (msg: string) => void) => void;
@@ -159,7 +154,6 @@ interface EmployeeCardProps {
 const EmployeeCard: React.FC<EmployeeCardProps> = ({
   employee,
   payouts,
-  formatCurrency,
   onEdit,
   onDelete,
   onAddPayout
@@ -183,34 +177,34 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({
   };
 
   return (
-    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+    <div className="p-4 bg-white/60 border border-white/30 rounded-xl space-y-3 shadow-sm backdrop-blur-sm">
       <div className="flex items-center justify-between">
-        <span className="font-bold text-slate-900 text-base">{employee.name}</span>
+        <span className="font-extrabold text-slate-900 text-base">{employee.name}</span>
         <div className="flex items-center gap-1">
-          <button onClick={onEdit} className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg">
+          <button onClick={onEdit} className="p-1.5 text-slate-600 hover:text-slate-900 rounded-lg">
             <Edit2 className="w-4 h-4" />
           </button>
-          <button onClick={onDelete} className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg">
+          <button onClick={onDelete} className="p-1.5 text-slate-500 hover:text-red-700 rounded-lg">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div className="text-xs space-y-1">
-        <div className="text-slate-600">Месячный оклад: <span className="font-semibold text-slate-900">{formatCurrency(employee.salary)}</span></div>
-        <div className="text-emerald-700 font-medium">Выдано частями: <span className="font-bold">{formatCurrency(totalPaid)}</span></div>
-        <div className={remaining > 0 ? 'text-red-700 font-bold' : 'text-emerald-700 font-bold'}>
+      <div className="text-xs space-y-1 font-medium">
+        <div className="text-slate-800">Месячный оклад: <span className="font-extrabold text-slate-900">{formatCurrency(employee.salary)}</span></div>
+        <div className="text-emerald-800 font-bold">Выдано частями: <span className="font-black">{formatCurrency(totalPaid)}</span></div>
+        <div className={remaining > 0 ? 'text-red-800 font-black' : 'text-emerald-800 font-black'}>
           Остаток к выплате: {formatCurrency(Math.max(0, remaining))}
         </div>
       </div>
 
       {payouts.length > 0 && (
-        <div className="border-t border-slate-200/60 pt-2">
-          <div className="flex items-center justify-between text-xs text-slate-600">
-            <span className="font-semibold">История выплат ({payouts.length}):</span>
+        <div className="border-t border-slate-900/10 pt-2">
+          <div className="flex items-center justify-between text-xs text-slate-800">
+            <span className="font-bold">История выплат ({payouts.length}):</span>
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className="text-blue-600 hover:underline flex items-center gap-0.5"
+              className="text-blue-700 font-bold hover:underline flex items-center gap-0.5"
             >
               <span>{showHistory ? 'Скрыть' : 'Показать'}</span>
               {showHistory ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -220,11 +214,11 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({
           {showHistory && (
             <div className="mt-2 space-y-1 max-h-32 overflow-y-auto pr-1">
               {payouts.map(p => (
-                <div key={p.id} className="flex items-center justify-between text-xs p-1.5 bg-white rounded border border-slate-100">
-                  <span className="text-slate-500">
+                <div key={p.id} className="flex items-center justify-between text-xs p-1.5 bg-white/70 rounded-lg border border-slate-200">
+                  <span className="text-slate-700 font-medium">
                     {new Date(p.date).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  <span className="font-bold text-red-600">{formatCurrency(p.amount)}</span>
+                  <span className="font-black text-red-800">{formatCurrency(p.amount)}</span>
                 </div>
               ))}
             </div>
@@ -242,16 +236,16 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({
             setErrorMsg(null);
           }}
           placeholder="Сумма выплаты"
-          className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-slate-900"
+          className="flex-1 px-3 py-1.5 text-xs bg-white/85 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 font-bold text-slate-900 shadow-sm"
         />
         <button
           type="submit"
-          className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+          className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white text-xs font-bold rounded-xl transition-colors whitespace-nowrap shadow"
         >
           Выплатить
         </button>
       </form>
-      {errorMsg && <p className="text-xs text-red-600 font-medium">{errorMsg}</p>}
+      {errorMsg && <p className="text-xs text-red-600 font-bold">{errorMsg}</p>}
     </div>
   );
 };
@@ -286,14 +280,14 @@ const AddEditEmployeeModal: React.FC<AddEditEmployeeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95">
-        <h3 className="text-lg font-bold text-slate-800 mb-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+      <div className="bg-white/70 backdrop-blur-lg border border-white/40 rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 text-slate-900">
+        <h3 className="text-lg font-extrabold text-slate-900 mb-4">
           {existingEmployee ? 'Редактировать сотрудника' : 'Добавить сотрудника'}
         </h3>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Имя сотрудника</label>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Имя сотрудника</label>
             <input
               type="text"
               value={name}
@@ -302,13 +296,13 @@ const AddEditEmployeeModal: React.FC<AddEditEmployeeModalProps> = ({
                 setError(null);
               }}
               placeholder="Иван Иванов"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+              className="w-full px-3 py-2 bg-white/85 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 font-bold text-sm shadow-sm"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Месячная зарплата (₽)</label>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">Месячная зарплата (₽)</label>
             <input
               type="number"
               step="any"
@@ -318,23 +312,23 @@ const AddEditEmployeeModal: React.FC<AddEditEmployeeModalProps> = ({
                 setError(null);
               }}
               placeholder="50000"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+              className="w-full px-3 py-2 bg-white/85 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 font-bold text-sm shadow-sm"
             />
           </div>
 
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p className="text-xs text-red-600 font-bold">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium text-sm"
+              className="px-4 py-2 text-slate-800 bg-white/60 hover:bg-white/80 rounded-xl font-bold text-xs shadow-sm"
             >
               Отмена
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-medium text-sm"
+              className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold text-xs shadow transition-colors"
             >
               Сохранить
             </button>

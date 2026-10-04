@@ -304,17 +304,6 @@ const MainContent: React.FC = () => {
       date: Date.now()
     };
     setPayouts(prev => [newPayout, ...prev]);
-
-    // Record expense transaction
-    const expenseTx: TransactionEntity = {
-      id: Date.now() + 1,
-      type: 'EXPENSE',
-      amount,
-      note: `Выплата зарплаты: ${employee.name}`,
-      clientInfo: 'Зарплата',
-      date: Date.now()
-    };
-    setTransactions(prev => [expenseTx, ...prev]);
     setToastMessage(`Выплачено ${formatCurrency(amount)} (${employee.name})`);
   };
 
@@ -340,6 +329,7 @@ const MainContent: React.FC = () => {
         {currentScreen === 'MAIN' ? (
           <MainScreen
             transactions={transactions}
+            payouts={payouts}
             debtorSummaries={debtorSummaries}
             updateStatus={updateStatus}
             isVoiceListening={isListening}
@@ -424,22 +414,22 @@ const MainContent: React.FC = () => {
 
       {/* Voice Fallback Modal */}
       {isVoiceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+          <div className="bg-white/70 backdrop-blur-lg border border-white/40 rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 text-slate-900">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-900/10 mb-4">
               <div className="flex items-center gap-2">
                 <Mic className="w-5 h-5 text-blue-600" />
-                <h2 className="text-xl font-bold text-slate-800">Голосовая команда</h2>
+                <h2 className="text-xl font-extrabold text-slate-900">Голосовая команда</h2>
               </div>
-              <button onClick={() => setIsVoiceModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+              <button onClick={() => setIsVoiceModalOpen(false)} className="p-1 text-slate-500 hover:text-slate-800 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 mb-2">
+            <p className="text-xs font-bold text-slate-800 mb-2">
               Произнесите или введите текстовую команду:
             </p>
-            <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
+            <p className="text-[11px] text-slate-700 font-medium mb-4 leading-relaxed">
               Примеры:<br />
               • «Прибыль 5000 замена масла Ford»<br />
               • «Расходники 1200 покупка антифриза»<br />
@@ -459,7 +449,7 @@ const MainContent: React.FC = () => {
                 value={manualVoiceInput}
                 onChange={(e) => setManualVoiceInput(e.target.value)}
                 placeholder="Введите команду..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                className="w-full px-3 py-2 bg-white/85 border border-slate-300 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 shadow-sm"
                 autoFocus
               />
 
@@ -467,7 +457,7 @@ const MainContent: React.FC = () => {
                 <button
                   type="button"
                   onClick={startVoiceInput}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow"
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow"
                 >
                   <Mic className="w-3.5 h-3.5" />
                   <span>Микрофон</span>
@@ -477,13 +467,13 @@ const MainContent: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsVoiceModalOpen(false)}
-                    className="px-3 py-1.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium text-xs"
+                    className="px-3 py-1.5 text-slate-800 bg-white/60 hover:bg-white/80 rounded-xl font-bold text-xs shadow-sm"
                   >
                     Отмена
                   </button>
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-bold text-xs flex items-center gap-1 shadow"
+                    className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold text-xs flex items-center gap-1 shadow"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Отправить</span>
