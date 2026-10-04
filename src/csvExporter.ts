@@ -9,7 +9,9 @@ export interface SummaryTotals {
   serviceProfit?: number;
   partsProfit?: number;
   debtors: number;
-  materialExpenses: number;
+  consumables?: number;
+  otherExpenses?: number;
+  materialExpenses?: number;
   grandTotal: number;
   salaryTotal: number;
   netTotal: number;
@@ -59,14 +61,14 @@ export async function exportAndShareCsv(
     summaryRowsStr = [
       '',
       `--- ИТОГИ ЗА ПЕРИОД: ${periodTitle} ---`,
-      `;;;;Общая прибыль;${summaryTotals.profit};;`,
+      `;;;;Прибыль;${summaryTotals.profit};;`,
       `;;;;  из них Работы;${summaryTotals.serviceProfit ?? 0};;`,
       `;;;;  из них Запчасти;${summaryTotals.partsProfit ?? 0};;`,
       `;;;;Должники (непогашено);${summaryTotals.debtors};;`,
-      `;;;;Расходники (материалы);${summaryTotals.materialExpenses};;`,
-      `;;;;Общий итог (Прибыль − Расходники);${summaryTotals.grandTotal};;`,
-      `;;;;Зарплата сотрудников (всего);${summaryTotals.salaryTotal};;`,
-      `;;;;Чистый итог;${summaryTotals.netTotal};;`,
+      `;;;;Зарплата сотрудников;${summaryTotals.salaryTotal};;`,
+      `;;;;Расходники;${summaryTotals.consumables ?? summaryTotals.materialExpenses ?? 0};;`,
+      `;;;;Прочие траты;${summaryTotals.otherExpenses ?? 0};;`,
+      `;;;;Итого в кассе;${summaryTotals.grandTotal};;`,
       '',
       '--- КАССА И СПОСОБЫ ОПЛАТЫ ---',
       `;;;;Наличные (приход);${summaryTotals.cashProfit ?? 0};;`,

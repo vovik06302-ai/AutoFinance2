@@ -142,16 +142,27 @@ export function parseVoiceCommand(rawText: string): VoiceCommand {
   }
 
   // Transaction keywords
-  const isProfit = text.includes('прибыль') || text.includes('доход') || text.includes('оплата') || text.includes('заработок');
-  const isExpense = text.includes('трата') || text.includes('траты') || text.includes('расход') || text.includes('расходы') || text.includes('расходники') || text.includes('расходник') || text.includes('покупка');
-  const isDebtor = text.includes('должник') || text.includes('долг') || text.includes('должники') || text.includes('в долг');
+  const isSalary = text.includes('зарплата') || text.includes('зарплату') || text.includes('зп') || text.includes('аванс');
+  const isConsumable = text.includes('расходники') || text.includes('расходник');
+  const isProfit = !isSalary && !isConsumable && (text.includes('прибыль') || text.includes('доход') || text.includes('оплата') || text.includes('заработок'));
+  const isExpense = !isSalary && !isConsumable && (text.includes('трата') || text.includes('траты') || text.includes('расход') || text.includes('расходы') || text.includes('покупка'));
+  const isDebtor = !isSalary && !isConsumable && (text.includes('должник') || text.includes('долг') || text.includes('должники') || text.includes('в долг'));
 
-  if (isProfit || isExpense || isDebtor) {
-    const type: TransactionType = isDebtor ? 'DEBTOR' : isExpense ? 'EXPENSE' : 'PROFIT';
+  if (isSalary || isConsumable || isProfit || isExpense || isDebtor) {
+    const type: TransactionType = isSalary
+      ? 'SALARY'
+      : isConsumable
+      ? 'CONSUMABLE'
+      : isDebtor
+      ? 'DEBTOR'
+      : isExpense
+      ? 'EXPENSE'
+      : 'PROFIT';
 
     const { amount, remainder: rawRemainder } = extractAmountAndRemainder(text);
+    // Remove category trigger words cleanly
     let remainder = rawRemainder
-      .replace(/прибыль|доход|трата|траты|расход|расходы|должник|должники|долг/g, '')
+      .replace(/(?:^|\s)(зарплата|зарплату|зп|расходники|расходник|прибыль|доход|трата|траты|расход|расходы|должник|должники|долг)(?=\s|$)/gi, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -159,7 +170,42 @@ export function parseVoiceCommand(rawText: string): VoiceCommand {
       let clientInfo = '';
       let note = remainder;
 
-      if (type === 'DEBTOR') {
+      if (type === 'SALARY') {
+        // e.g. "20000 иван" -> employee: "Иван", note: "Зарплата"
+        // e.g. "иван аванс 5000" -> employee: "Иван", note: "Аванс"
+        // e.g. "иван за неделю 15000" -> employee: "Иван", note: "За неделю"
+        let comment = '';
+        let cleanRem = remainder;
+
+        // Check multi-word comments first
+        for (const multi of ['под расчет', 'за неделю']) {
+          const regex = new RegExp(`(?:^|\\s)${multi}(?=\\s|$)`, 'i');
+          if (regex.test(cleanRem)) {
+            comment = multi.charAt(0).toUpperCase() + multi.slice(1);
+            cleanRem = cleanRem.replace(regex, ' ').trim();
+            break;
+          }
+        }
+
+        const words = cleanRem.split(/\s+/).filter(w => w.length > 0);
+        if (!comment) {
+          const knownAdvanceWords = ['аванс', 'премия', 'оклад', 'расчет', 'бонус'];
+          const advIndex = words.findIndex(w => knownAdvanceWords.includes(w.toLowerCase()));
+          if (advIndex !== -1) {
+            comment = words[advIndex].charAt(0).toUpperCase() + words[advIndex].slice(1);
+            words.splice(advIndex, 1);
+          }
+        }
+
+        const empName = words.length > 0
+          ? words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+          : 'Сотрудник';
+
+        clientInfo = empName;
+        note = comment || 'Зарплата';
+      } else if (type === 'CONSUMABLE') {
+        note = remainder || 'Расходники';
+      } else if (type === 'DEBTOR') {
         const parts = remainder.split(' ');
         if (parts.length >= 2) {
           clientInfo = `${parts[0]} ${parts[1]}`.trim();
@@ -199,7 +245,7 @@ export function parseVoiceCommand(rawText: string): VoiceCommand {
         kind: 'add_transaction',
         type,
         amount,
-        note: note || 'Голосовая запись',
+        note: note || (type === 'SALARY' ? 'Зарплата' : type === 'CONSUMABLE' ? 'Расходники' : 'Голосовая запись'),
         clientInfo,
         paymentMethod,
         revenueCategory

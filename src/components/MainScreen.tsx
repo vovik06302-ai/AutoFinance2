@@ -21,7 +21,8 @@ import {
   Search,
   Filter,
   X,
-  RotateCcw
+  RotateCcw,
+  Wrench
 } from 'lucide-react';
 
 interface Props {
@@ -64,7 +65,7 @@ export const MainScreen: React.FC<Props> = ({
 
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'PROFIT' | 'EXPENSE' | 'DEBTOR' | 'SALARY'>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'PROFIT' | 'EXPENSE' | 'CONSUMABLE' | 'DEBTOR' | 'SALARY'>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<'ALL' | PaymentMethod>('ALL');
   const [masterFilter, setMasterFilter] = useState<'ALL' | number>('ALL');
   const [showExtendedFilters, setShowExtendedFilters] = useState(false);
@@ -72,6 +73,7 @@ export const MainScreen: React.FC<Props> = ({
   // Category counts
   const countProfit = allFeedItems.filter(i => i.category === 'PROFIT' || i.category === 'REPAYMENT').length;
   const countExpense = allFeedItems.filter(i => i.category === 'EXPENSE').length;
+  const countConsumable = allFeedItems.filter(i => i.category === 'CONSUMABLE').length;
   const countDebtor = allFeedItems.filter(i => i.category === 'DEBTOR').length;
   const countSalary = allFeedItems.filter(i => i.category === 'SALARY').length;
 
@@ -117,7 +119,7 @@ export const MainScreen: React.FC<Props> = ({
     .reduce((s, i) => s + i.amount, 0);
 
   const filteredExpenseSum = filteredFeedItems
-    .filter(i => i.category === 'EXPENSE' || i.category === 'SALARY')
+    .filter(i => i.category === 'EXPENSE' || i.category === 'CONSUMABLE' || i.category === 'SALARY')
     .reduce((s, i) => s + i.amount, 0);
 
   const hasActiveFilters =
@@ -160,7 +162,9 @@ export const MainScreen: React.FC<Props> = ({
         serviceProfit={summary.serviceProfit}
         partsProfit={summary.partsProfit}
         debtors={summary.activeDebtorsSum}
-        expenses={summary.materialExpenses}
+        consumables={summary.consumables}
+        otherExpenses={summary.otherExpenses}
+        expenses={summary.otherExpenses}
         salaryTotal={summary.salaryTotal}
         netTotal={summary.netTotal}
         cashProfit={summary.cashProfit}
@@ -214,14 +218,14 @@ export const MainScreen: React.FC<Props> = ({
           }`}
         >
           <BadgeCheck className="w-4 h-4 text-purple-200" />
-          <span>Зарплата</span>
+          <span>Зарплатный модуль</span>
         </button>
       </div>
 
-      {/* 2. THREE QUICK ACTION BUTTONS */}
+      {/* 2. FIVE QUICK ACTION BUTTONS */}
       <div>
         <div className={`text-xs uppercase tracking-wider mb-2 ${sectionSubHeadingClass}`}>
-          Быстрый ввод
+          Быстрый ввод операций
         </div>
         <div className="grid grid-cols-3 gap-2">
           {/* Profit Button */}
@@ -251,7 +255,7 @@ export const MainScreen: React.FC<Props> = ({
             <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow">
               <ArrowDownRight className="w-5 h-5" />
             </div>
-            <span className={`text-xs font-bold ${isLightMode ? 'text-red-950' : 'text-red-200'}`}>Расходники</span>
+            <span className={`text-xs font-bold ${isLightMode ? 'text-red-950' : 'text-red-200'}`}>Траты</span>
           </button>
 
           {/* Debtor Button */}
@@ -267,6 +271,45 @@ export const MainScreen: React.FC<Props> = ({
               <PlusCircle className="w-5 h-5" />
             </div>
             <span className={`text-xs font-bold ${isLightMode ? 'text-orange-950' : 'text-orange-200'}`}>Должники</span>
+          </button>
+        </div>
+
+        {/* Row 2: Расходники & Зарплата */}
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          {/* Consumables Button */}
+          <button
+            onClick={() => onOpenAddModal('CONSUMABLE')}
+            className={`p-3 border rounded-xl flex items-center justify-center gap-2.5 transition-all shadow-md group ${
+              isLightMode
+                ? 'bg-amber-50 hover:bg-amber-100/80 border-amber-300 text-amber-950'
+                : 'bg-amber-500/25 hover:bg-amber-500/35 border-amber-300/30 backdrop-blur-md'
+            }`}
+          >
+            <div className="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow flex-shrink-0">
+              <Wrench className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <div className={`text-xs font-black ${isLightMode ? 'text-amber-950' : 'text-amber-200'}`}>Расходники</div>
+              <div className="text-[10px] text-slate-500 font-medium leading-tight">Масло, фильтры, склад</div>
+            </div>
+          </button>
+
+          {/* Salary Button */}
+          <button
+            onClick={() => onOpenAddModal('SALARY')}
+            className={`p-3 border rounded-xl flex items-center justify-center gap-2.5 transition-all shadow-md group ${
+              isLightMode
+                ? 'bg-purple-50 hover:bg-purple-100/80 border-purple-300 text-purple-950'
+                : 'bg-purple-500/25 hover:bg-purple-500/35 border-purple-300/30 backdrop-blur-md'
+            }`}
+          >
+            <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow flex-shrink-0">
+              <Banknote className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <div className={`text-xs font-black ${isLightMode ? 'text-purple-950' : 'text-purple-200'}`}>Зарплата</div>
+              <div className="text-[10px] text-slate-500 font-medium leading-tight">Выплата сотруднику</div>
+            </div>
           </button>
         </div>
       </div>
@@ -360,7 +403,17 @@ export const MainScreen: React.FC<Props> = ({
                 : 'bg-white/40 hover:bg-white/60 text-red-950 border border-white/20'
             }`}
           >
-            Расходники ({countExpense})
+            Траты ({countExpense})
+          </button>
+          <button
+            onClick={() => setCategoryFilter('CONSUMABLE')}
+            className={`py-1 px-2.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+              categoryFilter === 'CONSUMABLE'
+                ? 'bg-amber-700 text-white shadow'
+                : 'bg-white/40 hover:bg-white/60 text-amber-950 border border-white/20'
+            }`}
+          >
+            Расходники ({countConsumable})
           </button>
           <button
             onClick={() => setCategoryFilter('DEBTOR')}
@@ -507,6 +560,7 @@ export const MainScreen: React.FC<Props> = ({
             {filteredFeedItems.map(item => {
               const isProfit = item.category === 'PROFIT' || item.category === 'REPAYMENT';
               const isSalary = item.category === 'SALARY';
+              const isConsumable = item.category === 'CONSUMABLE';
               const isExpense = item.category === 'EXPENSE';
               const isDebtor = item.category === 'DEBTOR';
 
@@ -514,6 +568,8 @@ export const MainScreen: React.FC<Props> = ({
                 ? 'text-purple-900'
                 : isProfit
                 ? 'text-emerald-800'
+                : isConsumable
+                ? 'text-amber-800'
                 : isExpense
                 ? 'text-red-800'
                 : 'text-orange-800';
@@ -522,6 +578,8 @@ export const MainScreen: React.FC<Props> = ({
                 ? 'bg-purple-600'
                 : isProfit
                 ? 'bg-emerald-600'
+                : isConsumable
+                ? 'bg-amber-600'
                 : isExpense
                 ? 'bg-red-600'
                 : 'bg-orange-600';

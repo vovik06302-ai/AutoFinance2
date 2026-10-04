@@ -19,7 +19,7 @@ import {
   saveSalaryPayouts,
   groupDebtors
 } from './storage';
-import { formatCurrency } from './utils';
+import { formatCurrency, isLegacySalaryTransaction } from './utils';
 import { parseVoiceCommand } from './voiceParser';
 import { startHybridSpeechRecognition } from './speech';
 import { checkForAppUpdates, downloadAndInstallApk, CURRENT_VERSION } from './updateChecker';
@@ -145,19 +145,45 @@ const MainContent: React.FC = () => {
 
     switch (command.kind) {
       case 'add_transaction': {
+        const empName = command.type === 'SALARY' ? (command.clientInfo || '').trim() : undefined;
+        if (empName && !employees.some(e => e.name.toLowerCase().trim() === empName.toLowerCase())) {
+          const newEmp: EmployeeEntity = {
+            id: Date.now(),
+            name: empName,
+            salary: 0,
+            salaryType: 'PERCENTAGE',
+            percentageRate: 40,
+            baseSalary: 0
+          };
+          setEmployees(prev => [...prev, newEmp]);
+        }
+
         const newTx: TransactionEntity = {
           id: Date.now(),
           type: command.type,
           amount: command.amount,
           note: command.note,
           clientInfo: command.clientInfo,
+          employeeName: command.type === 'SALARY' ? (command.clientInfo || command.note) : undefined,
           date: Date.now(),
           paymentMethod: command.paymentMethod || 'CASH',
           revenueCategory: command.revenueCategory
         };
         setTransactions(prev => [newTx, ...prev]);
-        const typeName = command.type === 'PROFIT' ? 'Прибыль' : command.type === 'EXPENSE' ? 'Расходники' : 'Должник';
-        setToastMessage(`Добавлена ${typeName}: ${formatCurrency(command.amount)} (${command.note})`);
+
+        let msg = '';
+        if (command.type === 'PROFIT') {
+          msg = `Добавлена Прибыль: ${formatCurrency(command.amount)} (${command.note})`;
+        } else if (command.type === 'CONSUMABLE') {
+          msg = `Добавлены Расходники: ${formatCurrency(command.amount)} (${command.note})`;
+        } else if (command.type === 'SALARY') {
+          msg = `Добавлена Зарплата: ${formatCurrency(command.amount)} (${command.clientInfo}: ${command.note})`;
+        } else if (command.type === 'EXPENSE') {
+          msg = `Добавлена Трата: ${formatCurrency(command.amount)} (${command.note})`;
+        } else {
+          msg = `Добавлен Должник: ${formatCurrency(command.amount)} (${command.clientInfo})`;
+        }
+        setToastMessage(msg);
         break;
       }
       case 'navigate_report': {
@@ -254,6 +280,21 @@ const MainContent: React.FC = () => {
     employeeId?: number,
     employeeName?: string
   ) => {
+    if (type === 'SALARY') {
+      const empName = (employeeName || clientInfo || '').trim();
+      if (empName && !employees.some(e => e.name.toLowerCase().trim() === empName.toLowerCase())) {
+        const newEmp: EmployeeEntity = {
+          id: Date.now(),
+          name: empName,
+          salary: 0,
+          salaryType: 'PERCENTAGE',
+          percentageRate: 40,
+          baseSalary: 0
+        };
+        setEmployees(prev => [...prev, newEmp]);
+      }
+    }
+
     const newTx: TransactionEntity = {
       id: Date.now(),
       type,
@@ -266,13 +307,28 @@ const MainContent: React.FC = () => {
       phone,
       dueDate,
       employeeId,
-      employeeName
+      employeeName: type === 'SALARY' ? (employeeName || clientInfo) : employeeName
     };
     setTransactions(prev => [newTx, ...prev]);
     setActiveDialogType(null);
   };
 
   const handleUpdateTransaction = (updated: TransactionEntity) => {
+    if (updated.type === 'SALARY') {
+      const empName = (updated.employeeName || updated.clientInfo || '').trim();
+      if (empName && !employees.some(e => e.name.toLowerCase().trim() === empName.toLowerCase())) {
+        const newEmp: EmployeeEntity = {
+          id: Date.now(),
+          name: empName,
+          salary: 0,
+          salaryType: 'PERCENTAGE',
+          percentageRate: 40,
+          baseSalary: 0
+        };
+        setEmployees(prev => [...prev, newEmp]);
+      }
+    }
+
     setTransactions(prev => prev.map(t => (t.id === updated.id ? updated : t)));
     setEditingTransaction(null);
   };
@@ -420,6 +476,14 @@ const MainContent: React.FC = () => {
 
   const debtorSummaries = groupDebtors(transactions);
 
+  const suggestedEmployeeNames = Array.from(new Set([
+    ...employees.map(e => e.name.trim()),
+    ...transactions
+      .filter(t => t.type === 'SALARY' || isLegacySalaryTransaction(t))
+      .map(t => (t.employeeName || t.clientInfo || '').trim()),
+    ...payouts.map(p => (p.employeeName || '').trim())
+  ])).filter(Boolean);
+
   return (
     <div className="min-h-screen flex flex-col antialiased select-none relative text-slate-900">
       {/* Animated Starfield background */}
@@ -474,6 +538,7 @@ const MainContent: React.FC = () => {
         <AddEditModal
           type={activeDialogType}
           employees={employees}
+          suggestedEmployeeNames={suggestedEmployeeNames}
           onClose={() => setActiveDialogType(null)}
           onSave={(amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate, employeeId, employeeName) =>
             handleAddTransaction(activeDialogType, amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate, employeeId, employeeName)
@@ -486,6 +551,7 @@ const MainContent: React.FC = () => {
           type={editingTransaction.type}
           existingTransaction={editingTransaction}
           employees={employees}
+          suggestedEmployeeNames={suggestedEmployeeNames}
           onClose={() => setEditingTransaction(null)}
           onSave={(amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate, employeeId, employeeName) =>
             handleUpdateTransaction({ ...editingTransaction, amount, note, clientInfo, paymentMethod, revenueCategory, phone, dueDate, employeeId, employeeName })

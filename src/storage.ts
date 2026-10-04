@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   TRANSACTIONS: 'autofinance_transactions',
   EMPLOYEES: 'autofinance_employees',
   SALARY_PAYOUTS: 'autofinance_salary_payouts',
+  EMPLOYEE_NAMES: 'autofinance_employee_names',
   THEME: 'autofinance_theme',
   BG_MODE: 'autofinance_bg_mode',
   CARD_STYLE: 'autofinance_card_style',
@@ -136,6 +137,31 @@ export function saveSalaryPayouts(items: SalaryPayoutEntity[]): void {
     localStorage.setItem(STORAGE_KEYS.SALARY_PAYOUTS, JSON.stringify(items));
   } catch (e) {
     console.error('Failed to save salary payouts', e);
+  }
+}
+
+export function loadSavedEmployeeNames(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.EMPLOYEE_NAMES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return ['Алексей', 'Михаил', 'Иван', 'Сергей', 'Дмитрий'];
+}
+
+export function saveEmployeeName(name: string): void {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  try {
+    const current = loadSavedEmployeeNames();
+    if (!current.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
+      const updated = [trimmed, ...current];
+      localStorage.setItem(STORAGE_KEYS.EMPLOYEE_NAMES, JSON.stringify(updated));
+    }
+  } catch (e) {
+    console.error('Failed to save employee name', e);
   }
 }
 

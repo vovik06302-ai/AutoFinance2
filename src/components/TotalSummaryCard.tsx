@@ -9,6 +9,8 @@ interface Props {
   serviceProfit?: number;
   partsProfit?: number;
   debtors: number;
+  consumables?: number;
+  otherExpenses?: number;
   expenses: number;
   salaryTotal: number;
   netTotal: number;
@@ -25,6 +27,8 @@ export const TotalSummaryCard: React.FC<Props> = ({
   serviceProfit = 0,
   partsProfit = 0,
   debtors,
+  consumables = 0,
+  otherExpenses = 0,
   expenses,
   salaryTotal,
   netTotal,
@@ -50,7 +54,7 @@ export const TotalSummaryCard: React.FC<Props> = ({
       {/* 1. GRAND TOTAL SECTION */}
       <div>
         <div className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1">
-          Общий итог
+          Общий итог в кассе
         </div>
         <div
           className={`text-2xl font-black tracking-tight drop-shadow-sm ${
@@ -59,13 +63,16 @@ export const TotalSummaryCard: React.FC<Props> = ({
         >
           {formatCurrency(grandTotal)}
         </div>
+        <div className="text-[10px] text-slate-600 font-medium mt-0.5">
+          Прибыль + Должники − Траты − Расходники − Зарплата
+        </div>
       </div>
 
-      {/* 2. THREE SUMMARY COLUMNS */}
+      {/* 2. SUMMARY COLUMNS */}
       <div className="pt-2 border-t border-slate-900/10 grid grid-cols-3 gap-2 text-center">
         <div className="flex flex-col">
           <span className="text-[11px] text-slate-700 font-extrabold">Прибыль</span>
-          <span className="text-sm font-black text-emerald-800">{formatCurrency(profit)}</span>
+          <span className="text-sm font-black text-emerald-800">+{formatCurrency(profit)}</span>
           {(serviceProfit > 0 || partsProfit > 0) && (
             <span className="text-[9px] text-slate-600 font-semibold mt-0.5">
               🔧{formatCurrency(serviceProfit)} | ⚙️{formatCurrency(partsProfit)}
@@ -78,7 +85,18 @@ export const TotalSummaryCard: React.FC<Props> = ({
         </div>
         <div className="flex flex-col">
           <span className="text-[11px] text-slate-700 font-extrabold">Расходники</span>
-          <span className="text-sm font-black text-red-800">{formatCurrency(expenses)}</span>
+          <span className="text-sm font-black text-red-800">−{formatCurrency(consumables)}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-center pt-1 border-t border-slate-900/10">
+        <div className="flex flex-col">
+          <span className="text-[11px] text-slate-700 font-extrabold">Траты (прочие)</span>
+          <span className="text-sm font-black text-red-700">−{formatCurrency(otherExpenses || expenses)}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[11px] text-slate-700 font-extrabold">Зарплата</span>
+          <span className="text-sm font-black text-purple-900">−{formatCurrency(salaryTotal)}</span>
         </div>
       </div>
 
@@ -122,25 +140,6 @@ export const TotalSummaryCard: React.FC<Props> = ({
             </div>
           </div>
         )}
-      </div>
-
-      {/* 4. SALARY & NET TOTAL SECTION */}
-      <div className="pt-3 border-t border-slate-900/15 flex flex-col gap-1.5 bg-white/40 p-3 rounded-xl border border-white/40 shadow-inner">
-        <div className="flex items-center justify-between text-xs font-extrabold text-slate-800">
-          <span>Зарплата сотрудников:</span>
-          <span className="text-red-800 font-black">− {formatCurrency(salaryTotal)}</span>
-        </div>
-
-        <div className="flex items-center justify-between pt-1 border-t border-slate-900/10">
-          <span className="text-xs font-black text-slate-900 uppercase tracking-wider">Чистый итог:</span>
-          <span
-            className={`text-xl font-black tracking-tight drop-shadow-sm ${
-              netTotal >= 0 ? 'text-emerald-800' : 'text-red-800'
-            }`}
-          >
-            {formatCurrency(netTotal)}
-          </span>
-        </div>
       </div>
     </div>
   );

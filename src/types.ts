@@ -1,4 +1,4 @@
-export type TransactionType = 'PROFIT' | 'EXPENSE' | 'DEBTOR';
+export type TransactionType = 'PROFIT' | 'EXPENSE' | 'DEBTOR' | 'SALARY' | 'CONSUMABLE';
 
 export type PaymentMethod = 'CASH' | 'SBP' | 'CARD' | 'BANK_ACCOUNT';
 
