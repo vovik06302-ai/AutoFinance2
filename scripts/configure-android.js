@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 const manifestPath = path.resolve('android/app/src/main/AndroidManifest.xml');
 const filePathsDir = path.resolve('android/app/src/main/res/xml');
@@ -64,7 +65,30 @@ if (fs.existsSync(manifestPath)) {
   console.log('✅ Configured AndroidManifest.xml permissions and FileProvider');
 }
 
-// 3. Configure Versioning and Signing in android/app/build.gradle
+// 3. Verify Signing Keystore & Environment Variables
+const keystorePathEnv = process.env.KEYSTORE_PATH;
+const resolvedKeystorePath = keystorePathEnv
+  ? path.resolve(keystorePathEnv)
+  : (fs.existsSync('release.keystore') ? path.resolve('release.keystore') : path.resolve('../release.keystore'));
+
+if (!fs.existsSync(resolvedKeystorePath)) {
+  if (process.env.CI) {
+    console.error(`❌ ERROR: Signing keystore file not found at: ${resolvedKeystorePath}`);
+    console.error('Please ensure the "Prepare Signing Keystore" step runs before this script and generates release.keystore.');
+    process.exit(1);
+  } else {
+    console.log(`⚠️ Warning: Keystore not found at ${resolvedKeystorePath}, generating local release.keystore...`);
+    try {
+      execSync('keytool -genkey -v -keystore release.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AutoFinance,O=AutoFinance,C=RU"', { stdio: 'inherit' });
+    } catch (e) {
+      console.warn('Could not auto-generate local release.keystore:', e.message);
+    }
+  }
+} else {
+  console.log(`🔑 Verified Keystore file at: ${resolvedKeystorePath}`);
+}
+
+// 4. Configure Versioning and Signing in android/app/build.gradle
 if (fs.existsSync(gradlePath)) {
   let gradle = fs.readFileSync(gradlePath, 'utf8');
 
@@ -76,34 +100,47 @@ if (fs.existsSync(gradlePath)) {
   const parts = versionName.split('.').map(n => parseInt(n, 10) || 0);
   const versionCode = (parts[0] || 1) * 10000 + (parts[1] || 0) * 100 + (parts[2] || 0);
 
-  console.log(`📌 Version Name: ${versionName}, Version Code: ${versionCode}`);
+  console.log(`📌 Setting Version Name: ${versionName}, Version Code: ${versionCode}`);
 
   gradle = gradle.replace(/versionName\s+["'].*?["']/, `versionName "${versionName}"`);
   gradle = gradle.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
 
-  // Ensure signingConfigs release is present
-  if (!gradle.includes('signingConfigs {')) {
-    const signingBlock = `
+  // Append persistent signing configuration safely at the end of build.gradle
+  const signingConfigMarker = '// === CI PERSISTENT SIGNING CONFIG ===';
+  if (gradle.includes(signingConfigMarker)) {
+    gradle = gradle.substring(0, gradle.indexOf(signingConfigMarker)).trimEnd() + '\n';
+  }
+
+  const ciSigningBlock = `
+${signingConfigMarker}
+android {
     signingConfigs {
-        release {
-            storeFile file(System.getenv("KEYSTORE_PATH") ?: "../../release.keystore")
-            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "android"
-            keyAlias System.getenv("KEY_ALIAS") ?: "androiddebugkey"
-            keyPassword System.getenv("KEY_PASSWORD") ?: "android"
+        ci {
+            def kPath = System.getenv("KEYSTORE_PATH") ?: "../../release.keystore"
+            def kPass = System.getenv("KEYSTORE_PASSWORD") ?: "android"
+            def kAlias = System.getenv("KEY_ALIAS") ?: "androiddebugkey"
+            def keyPass = System.getenv("KEY_PASSWORD") ?: "android"
+
+            storeFile file(kPath)
+            storePassword kPass
+            keyAlias kAlias
+            keyPassword keyPass
         }
     }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.ci
+        }
+        release {
+            signingConfig signingConfigs.ci
+        }
+    }
+}
 `;
-    gradle = gradle.replace('android {', `android {${signingBlock}`);
-  }
 
-  // Ensure debug and release buildTypes use signingConfigs.release
-  if (gradle.includes('buildTypes {')) {
-    gradle = gradle.replace(/debug\s*\{[\s\S]*?\}/, `debug {\n            signingConfig signingConfigs.release\n        }`);
-    gradle = gradle.replace(/release\s*\{[\s\S]*?\}/, `release {\n            signingConfig signingConfigs.release\n            minifyEnabled false\n            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'\n        }`);
-  }
-
+  gradle = gradle + '\n' + ciSigningBlock;
   fs.writeFileSync(gradlePath, gradle, 'utf8');
-  console.log('✅ Updated android/app/build.gradle with persistent release signingConfig & versioning');
+  console.log('✅ Appended persistent CI signing config to android/app/build.gradle');
 }
 
 console.log('🎉 Android configuration completed successfully!');
