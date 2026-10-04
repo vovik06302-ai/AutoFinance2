@@ -4,7 +4,6 @@ import {
   EmployeeEntity,
   SalaryPayoutEntity,
   AppScreen,
-  FilterPeriod,
   TransactionType,
   UpdateStatus
 } from './types';
@@ -17,8 +16,9 @@ import {
   saveSalaryPayouts,
   groupDebtors
 } from './storage';
+import { formatCurrency } from './utils';
 import { parseVoiceCommand } from './voiceParser';
-import { startHybridSpeechRecognition, stopHybridSpeechRecognition } from './speech';
+import { startHybridSpeechRecognition } from './speech';
 import { checkForAppUpdates, downloadAndInstallApk, CURRENT_VERSION } from './updateChecker';
 import { ThemeProvider, useAppTheme } from './components/ThemeContext';
 import { Navbar } from './components/Navbar';
@@ -39,7 +39,6 @@ const MainContent: React.FC = () => {
   const [transactions, setTransactions] = useState<TransactionEntity[]>(loadTransactions);
   const [employees, setEmployees] = useState<EmployeeEntity[]>(loadEmployees);
   const [payouts, setPayouts] = useState<SalaryPayoutEntity[]>(loadSalaryPayouts);
-  const [selectedFilter, setSelectedFilter] = useState<FilterPeriod>('ALL_TIME');
 
   // Modals state
   const [activeDialogType, setActiveDialogType] = useState<TransactionType | null>(null);
@@ -96,7 +95,7 @@ const MainContent: React.FC = () => {
         };
         setTransactions(prev => [newTx, ...prev]);
         const typeName = command.type === 'PROFIT' ? 'Прибыль' : command.type === 'EXPENSE' ? 'Расходники' : 'Должник';
-        setToastMessage(`Добавлена ${typeName}: ${command.amount} ₽ (${command.note})`);
+        setToastMessage(`Добавлена ${typeName}: ${formatCurrency(command.amount)} (${command.note})`);
         break;
       }
       case 'navigate_report': {
@@ -141,7 +140,7 @@ const MainContent: React.FC = () => {
     setIsVoiceModalOpen(false);
   };
 
-  // Hybrid Speech Recognition (Capacitor Community Plugin + Web Speech API Fallback)
+  // Hybrid Speech Recognition
   const startVoiceInput = async () => {
     await startHybridSpeechRecognition({
       onStart: () => setIsListening(true),
@@ -149,7 +148,7 @@ const MainContent: React.FC = () => {
         setIsListening(false);
         handleProcessVoiceText(transcript);
       },
-      onError: (err) => {
+      onError: () => {
         setIsListening(false);
         setIsVoiceModalOpen(true);
       },
@@ -177,7 +176,7 @@ const MainContent: React.FC = () => {
       setTimeout(() => {
         setUpdateStatus({ status: 'up_to_date', currentVersion: CURRENT_VERSION });
       }, 2000);
-    } catch (e: any) {
+    } catch {
       setUpdateStatus({ status: 'error', message: 'Не удалось скачать обновление' });
     }
   };
@@ -209,70 +208,45 @@ const MainContent: React.FC = () => {
   };
 
   const handleMarkDebtorPaid = (tx: TransactionEntity) => {
-    setTransactions(prev => prev.filter(t => t.id !== tx.id));
+    const clientName = tx.clientInfo || tx.note || 'Без имени';
     const profitTx: TransactionEntity = {
       id: Date.now(),
       type: 'PROFIT',
       amount: tx.amount,
-      note: `Оплата долга: ${tx.note}`,
-      clientInfo: tx.clientInfo,
+      note: `Погашение долга: ${clientName}`,
+      clientInfo: clientName,
       date: Date.now()
     };
     setTransactions(prev => [profitTx, ...prev]);
-    setToastMessage(`Долг оплачен: +${tx.amount} ₽ (${tx.clientInfo || tx.note})`);
+    setToastMessage(`Погашение долга: +${formatCurrency(tx.amount)} (${clientName})`);
   };
 
   const handleWriteOffDebtor = (clientName: string, amount: number, onError: (msg: string) => void) => {
-    const debtorTxs = transactions.filter(
-      t => t.type === 'DEBTOR' && (t.clientInfo || t.note || 'Без имени').trim() === clientName.trim()
-    );
-
-    const totalDebt = debtorTxs.reduce((sum, item) => sum + item.amount, 0);
+    const debtorGroup = debtorSummaries.find(d => d.name === clientName);
+    const remainingDebt = debtorGroup ? debtorGroup.remainingDebt : 0;
 
     if (amount <= 0) {
       onError('Сумма списания должна быть больше 0 ₽');
       return;
     }
-    if (amount > totalDebt) {
-      onError(`Сумма списания (${amount} ₽) больше долга (${totalDebt} ₽)`);
+    if (amount > remainingDebt) {
+      onError(`Сумма списания (${formatCurrency(amount)}) не может быть больше остатка долга (${formatCurrency(remainingDebt)})`);
       return;
     }
 
-    let remainingToWriteOff = amount;
-    const updatedList = [...transactions];
-
-    for (let i = 0; i < updatedList.length; i++) {
-      const item = updatedList[i];
-      if (item.type === 'DEBTOR' && (item.clientInfo || item.note || 'Без имени').trim() === clientName.trim()) {
-        if (remainingToWriteOff <= 0) break;
-
-        if (item.amount <= remainingToWriteOff) {
-          remainingToWriteOff -= item.amount;
-          updatedList.splice(i, 1);
-          i--;
-        } else {
-          updatedList[i] = {
-            ...item,
-            amount: item.amount - remainingToWriteOff
-          };
-          remainingToWriteOff = 0;
-        }
-      }
-    }
-
-    // Add profit record for the write-off/payment
+    // Add profit record with specified note format: "Погашение долга: имя клиента"
     const profitRecord: TransactionEntity = {
       id: Date.now(),
       type: 'PROFIT',
       amount: amount,
-      note: 'Оплата/списание долга',
+      note: `Погашение долга: ${clientName}`,
       clientInfo: clientName,
       date: Date.now()
     };
 
-    setTransactions([profitRecord, ...updatedList]);
+    setTransactions(prev => [profitRecord, ...prev]);
     setShowDebtorSearch(false);
-    setToastMessage(`Списано ${amount} ₽ у ${clientName}`);
+    setToastMessage(`Погашение долга: +${formatCurrency(amount)} (${clientName})`);
   };
 
   // Salary Actions
@@ -342,7 +316,7 @@ const MainContent: React.FC = () => {
       date: Date.now()
     };
     setTransactions(prev => [expenseTx, ...prev]);
-    setToastMessage(`Выплачено ${amount} ₽ (${employee.name})`);
+    setToastMessage(`Выплачено ${formatCurrency(amount)} (${employee.name})`);
   };
 
   const debtorSummaries = groupDebtors(transactions);
@@ -380,10 +354,12 @@ const MainContent: React.FC = () => {
         ) : (
           <ReportScreen
             transactions={transactions}
-            selectedFilter={selectedFilter}
-            onSelectFilter={setSelectedFilter}
+            payouts={payouts}
+            employees={employees}
+            debtorSummaries={debtorSummaries}
             onNavigateBack={() => setCurrentScreen('MAIN')}
             onMarkPaid={handleMarkDebtorPaid}
+            onOpenDebtorsModal={() => setShowDebtorSearch(true)}
           />
         )}
       </main>

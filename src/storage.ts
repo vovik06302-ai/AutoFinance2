@@ -117,20 +117,48 @@ export function saveTheme(theme: AppTheme): void {
 }
 
 export function groupDebtors(transactions: TransactionEntity[]): DebtorSummaryGroup[] {
-  const debtors = transactions.filter(t => t.type === 'DEBTOR');
-  const map = new Map<string, TransactionEntity[]>();
+  const map = new Map<string, { debtTxs: TransactionEntity[]; repaymentTxs: TransactionEntity[] }>();
 
-  debtors.forEach(t => {
-    const key = (t.clientInfo || t.note || 'Без имени').trim();
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(t);
+  const getOrCreate = (key: string) => {
+    const k = key.trim();
+    if (!map.has(k)) map.set(k, { debtTxs: [], repaymentTxs: [] });
+    return map.get(k)!;
+  };
+
+  transactions.forEach(t => {
+    if (t.type === 'DEBTOR') {
+      const key = (t.clientInfo || t.note || 'Без имени').trim();
+      getOrCreate(key).debtTxs.push(t);
+    } else if (t.type === 'PROFIT') {
+      const noteLower = t.note.toLowerCase();
+      const isRepayment = noteLower.includes('погашение долга') || 
+                          noteLower.includes('списание долга') || 
+                          noteLower.includes('оплата долга');
+      if (isRepayment) {
+        const extractedName = t.clientInfo || t.note.replace(/^(Погашение|Списание|Оплата)\s+долга:\s*/i, '');
+        const key = (extractedName || 'Без имени').trim();
+        getOrCreate(key).repaymentTxs.push(t);
+      }
+    }
   });
 
   const result: DebtorSummaryGroup[] = [];
-  map.forEach((txs, name) => {
-    const totalDebt = txs.reduce((sum, item) => sum + item.amount, 0);
-    result.push({ name, totalDebt, transactions: txs });
+  map.forEach((data, name) => {
+    const totalInitialDebt = data.debtTxs.reduce((sum, item) => sum + item.amount, 0);
+    const totalRepaid = data.repaymentTxs.reduce((sum, item) => sum + item.amount, 0);
+    const remainingDebt = Math.max(0, totalInitialDebt - totalRepaid);
+
+    if (totalInitialDebt > 0) {
+      result.push({
+        name,
+        totalInitialDebt,
+        totalRepaid,
+        remainingDebt,
+        debtTransactions: data.debtTxs.sort((a, b) => b.date - a.date),
+        repaymentTransactions: data.repaymentTxs.sort((a, b) => b.date - a.date)
+      });
+    }
   });
 
-  return result.sort((a, b) => b.totalDebt - a.totalDebt);
+  return result.sort((a, b) => b.remainingDebt - a.remainingDebt);
 }

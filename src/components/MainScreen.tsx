@@ -1,5 +1,6 @@
 import React from 'react';
 import { TransactionEntity, TransactionType, DebtorSummaryGroup, UpdateStatus } from '../types';
+import { formatCurrency } from '../utils';
 import { TotalSummaryCard } from './TotalSummaryCard';
 import { TrendingUp, ArrowDownRight, PlusCircle, UserSearch, BadgeCheck, Mic, Edit2, Trash2, CheckCircle, RefreshCw } from 'lucide-react';
 
@@ -21,6 +22,7 @@ interface Props {
 
 export const MainScreen: React.FC<Props> = ({
   transactions,
+  debtorSummaries,
   updateStatus,
   isVoiceListening,
   onStartVoiceInput,
@@ -34,13 +36,9 @@ export const MainScreen: React.FC<Props> = ({
   onMarkPaid
 }) => {
   const profit = transactions.filter(t => t.type === 'PROFIT').reduce((sum, t) => sum + t.amount, 0);
-  const debtors = transactions.filter(t => t.type === 'DEBTOR').reduce((sum, t) => sum + t.amount, 0);
+  const activeDebtorsSum = debtorSummaries.reduce((sum, d) => sum + d.remainingDebt, 0);
   const expenses = transactions.filter(t => t.type === 'EXPENSE').reduce((sum, t) => sum + t.amount, 0);
-  const grandTotal = profit + debtors - expenses;
-
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(val);
-  };
+  const grandTotal = profit + activeDebtorsSum - expenses;
 
   return (
     <div className="max-w-md mx-auto px-4 pt-4 pb-20 space-y-4 relative">
@@ -48,7 +46,7 @@ export const MainScreen: React.FC<Props> = ({
       <TotalSummaryCard
         grandTotal={grandTotal}
         profit={profit}
-        debtors={debtors}
+        debtors={activeDebtorsSum}
         expenses={expenses}
       />
 

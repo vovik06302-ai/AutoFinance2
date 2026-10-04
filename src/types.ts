@@ -38,8 +38,11 @@ export type FilterPeriod = 'TODAY' | 'WEEK' | 'MONTH' | 'ALL_TIME';
 
 export interface DebtorSummaryGroup {
   name: string;
-  totalDebt: number;
-  transactions: TransactionEntity[];
+  totalInitialDebt: number;
+  totalRepaid: number;
+  remainingDebt: number;
+  debtTransactions: TransactionEntity[];
+  repaymentTransactions: TransactionEntity[];
 }
 
 export type AppScreen = 'MAIN' | 'REPORT';

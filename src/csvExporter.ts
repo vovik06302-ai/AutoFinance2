@@ -1,13 +1,58 @@
-import { TransactionEntity } from './types';
+import { TransactionEntity, SalaryPayoutEntity } from './types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
-export async function exportAndShareCsv(transactions: TransactionEntity[], filterName: string) {
+export async function exportAndShareCsv(
+  transactions: TransactionEntity[],
+  payouts: SalaryPayoutEntity[] = [],
+  periodTitle: string = 'Отчёт'
+) {
   const BOM = '\uFEFF';
-  const header = 'ID;Дата;Тип;Сумма;Описание/Заметка;Клиент/Авто\n';
+  const header = 'ID;Дата;Тип;Сумма (₽);Описание/Заметка;Клиент/Авто\n';
 
-  const rows = transactions.map(item => {
+  // Sort all records chronologically descending
+  const combined: {
+    id: number;
+    date: number;
+    typeStr: string;
+    amount: number;
+    note: string;
+    clientInfo: string;
+  }[] = [];
+
+  transactions.forEach(t => {
+    let typeStr = 'Прибыль';
+    if (t.type === 'EXPENSE') typeStr = 'Расходники';
+    if (t.type === 'DEBTOR') typeStr = 'Долг';
+    if (t.type === 'PROFIT' && t.note.toLowerCase().includes('погашение долга')) {
+      typeStr = 'Погашение долга';
+    }
+
+    combined.push({
+      id: t.id,
+      date: t.date,
+      typeStr,
+      amount: t.amount,
+      note: t.note,
+      clientInfo: t.clientInfo
+    });
+  });
+
+  payouts.forEach(p => {
+    combined.push({
+      id: p.id,
+      date: p.date,
+      typeStr: 'Выплата зарплаты',
+      amount: p.amount,
+      note: `Выплата зарплаты (${p.employeeName})`,
+      clientInfo: p.employeeName
+    });
+  });
+
+  combined.sort((a, b) => b.date - a.date);
+
+  const rows = combined.map(item => {
     const dateStr = new Date(item.date).toLocaleString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
@@ -16,19 +61,18 @@ export async function exportAndShareCsv(transactions: TransactionEntity[], filte
       minute: '2-digit'
     });
 
-    const typeStr = item.type === 'PROFIT' ? 'Прибыль' : item.type === 'EXPENSE' ? 'Расходники' : 'Должник';
-    const noteEscaped = item.note.replace(/;/g, ',').replace(/\n/g, ' ');
-    const clientEscaped = item.clientInfo.replace(/;/g, ',').replace(/\n/g, ' ');
+    const noteEscaped = (item.note || '').replace(/;/g, ',').replace(/\n/g, ' ');
+    const clientEscaped = (item.clientInfo || '').replace(/;/g, ',').replace(/\n/g, ' ');
 
-    return `${item.id};${dateStr};${typeStr};${item.amount};${noteEscaped};${clientEscaped}`;
+    return `${item.id};${dateStr};${item.typeStr};${item.amount};${noteEscaped};${clientEscaped}`;
   });
 
   const csvContent = BOM + header + rows.join('\n');
-  const fileName = `finance_report_${new Date().toISOString().slice(0, 10)}.csv`;
+  const safeTitle = periodTitle.toLowerCase().replace(/[^a-z0-9а-яё]/gi, '_');
+  const fileName = `report_${safeTitle}_${new Date().toISOString().slice(0, 10)}.csv`;
 
   if (Capacitor.isNativePlatform()) {
     try {
-      // Save file to Cache directory via Capacitor Filesystem
       const writeResult = await Filesystem.writeFile({
         path: fileName,
         data: csvContent,
@@ -36,10 +80,9 @@ export async function exportAndShareCsv(transactions: TransactionEntity[], filte
         encoding: Encoding.UTF8
       });
 
-      // Share file using Capacitor Share
       await Share.share({
-        title: `Финансовый отчёт (${filterName})`,
-        text: `Экспорт финансового отчёта (${filterName})`,
+        title: `Финансовый отчёт (${periodTitle})`,
+        text: `Экспорт финансового отчёта за ${periodTitle}`,
         url: writeResult.uri,
         dialogTitle: 'Поделиться отчётом CSV'
       });
