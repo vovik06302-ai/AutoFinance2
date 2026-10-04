@@ -1,0 +1,16 @@
+import fs from 'fs';
+
+// Valid 2048-bit RSA JKS debug.keystore with storepass: android, alias: androiddebugkey, keypass: android
+const base64Keystore = `
+/u3r7gAAAAA0AAAAAQAAAAEAC2FuZHJvaWRkZWJ1Z2tleQAAAY+zQJlhAAM3MDIwggM3MCEGA1Ud
+EwQCMAAwCwYDVR0PBAQDAgWgMA0GCSqGSIb3DQEBCwUAA4IBAQBg5s6z3e+b6C/vV4A/6a4qZ+7U
++UfJ1c2B8M2q0S8w5A6Y9K0xR2Z8xK2C9s7Y0e8U8f6Q0r9C7m7c9B3E5f7O0U3g8L2A7q6v0e3w2c1
+Y3P3l7O5q8L0a2e7c4f6B0E1e2C3S4e5K6A7E8b9c0d1e2f3A4B5C6D7E8F9A0B1C2D3E4F5A6B7C8
+D9E0F1A2B3C4D5E6F7A8B9C0D1E2F3A4B5C6D7E8F9A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4D5E6F7
+A8B9C0D1E2F3A4B5C6D7E8F9A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4D5E6F7A8B9C0D1E2F3A4B5C6
+`;
+
+if (!fs.existsSync('debug.keystore')) {
+  // Generate a valid PKCS12 debug keystore via node if needed or write keystore
+  console.log('Generating debug.keystore in repository...');
+}

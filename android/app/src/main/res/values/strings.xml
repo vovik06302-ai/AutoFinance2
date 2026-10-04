@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">Финансы автосервиса</string>
-    <string name="title_activity_main">Финансы автосервиса</string>
-    <string name="package_name">com.autoservice.finance</string>
-    <string name="custom_url_scheme">com.autoservice.finance</string>
-</resources>
