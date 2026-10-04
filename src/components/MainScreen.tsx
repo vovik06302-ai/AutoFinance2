@@ -75,7 +75,7 @@ export const MainScreen: React.FC<Props> = ({
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={onOpenDebtorSearch}
-          className="p-3 bg-slate-200/80 hover:bg-slate-300/80 text-slate-800 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
+          className="p-3 bg-slate-100/90 hover:bg-white text-slate-900 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm backdrop-blur-sm"
         >
           <UserSearch className="w-4 h-4 text-orange-600" />
           <span>Должники</span>
@@ -83,7 +83,7 @@ export const MainScreen: React.FC<Props> = ({
 
         <button
           onClick={onOpenSalary}
-          className="p-3 bg-red-100 hover:bg-red-200/80 text-red-800 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
+          className="p-3 bg-red-100/90 hover:bg-red-200 text-red-900 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm backdrop-blur-sm"
         >
           <BadgeCheck className="w-4 h-4 text-red-600" />
           <span>Зарплата</span>
@@ -92,14 +92,14 @@ export const MainScreen: React.FC<Props> = ({
 
       {/* 2. THREE QUICK ACTION BUTTONS */}
       <div>
-        <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+        <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
           Быстрый ввод
         </div>
         <div className="grid grid-cols-3 gap-2">
           {/* Profit Button */}
           <button
             onClick={() => onOpenAddModal('PROFIT')}
-            className="p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-sm group"
+            className="p-3 bg-emerald-50/95 hover:bg-emerald-100 border border-emerald-200 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-sm group backdrop-blur-sm"
           >
             <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
               <TrendingUp className="w-5 h-5" />
@@ -110,7 +110,7 @@ export const MainScreen: React.FC<Props> = ({
           {/* Expense Button */}
           <button
             onClick={() => onOpenAddModal('EXPENSE')}
-            className="p-3 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-sm group"
+            className="p-3 bg-red-50/95 hover:bg-red-100 border border-red-200 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-sm group backdrop-blur-sm"
           >
             <div className="w-9 h-9 rounded-full bg-red-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
               <ArrowDownRight className="w-5 h-5" />
@@ -121,7 +121,7 @@ export const MainScreen: React.FC<Props> = ({
           {/* Debtor Button */}
           <button
             onClick={() => onOpenAddModal('DEBTOR')}
-            className="p-3 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-sm group"
+            className="p-3 bg-orange-50/95 hover:bg-orange-100 border border-orange-200 rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all shadow-sm group backdrop-blur-sm"
           >
             <div className="w-9 h-9 rounded-full bg-orange-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform">
               <PlusCircle className="w-5 h-5" />
@@ -134,19 +134,19 @@ export const MainScreen: React.FC<Props> = ({
       {/* 3. RECENT TRANSACTIONS LIST */}
       <div className="space-y-2">
         <div className="flex items-center justify-between pt-2">
-          <h2 className="text-base font-bold text-slate-800">
+          <h2 className="text-base font-bold text-slate-100">
             Все записи ({transactions.length})
           </h2>
           <button
             onClick={onOpenReport}
-            className="text-xs font-bold text-blue-600 hover:text-blue-800 underline"
+            className="text-xs font-bold text-blue-400 hover:text-blue-300 underline"
           >
             Подробный отчёт
           </button>
         </div>
 
         {transactions.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-6 text-slate-500 text-sm">
+          <div className="text-center py-12 bg-white/95 rounded-2xl border border-slate-200 p-6 text-slate-500 text-sm backdrop-blur-sm">
             Записей пока нет.<br />
             Нажмите на кнопку выше или воспользуйтесь голосовой командой.
           </div>
@@ -164,7 +164,7 @@ export const MainScreen: React.FC<Props> = ({
               return (
                 <div
                   key={item.id}
-                  className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-sm space-y-2 hover:border-slate-300 transition-colors"
+                  className="p-3.5 bg-white/95 border border-slate-200 rounded-xl shadow-sm space-y-2 hover:border-slate-300 transition-colors backdrop-blur-sm"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">

@@ -29,6 +29,7 @@ import { DebtorSearchModal } from './components/DebtorSearchModal';
 import { SalaryModal } from './components/SalaryModal';
 import { ThemeModal } from './components/ThemeModal';
 import { UpdateModal } from './components/UpdateModal';
+import { Starfield } from './components/Starfield';
 import { Mic, Send, X } from 'lucide-react';
 
 const MainContent: React.FC = () => {
@@ -322,7 +323,10 @@ const MainContent: React.FC = () => {
   const debtorSummaries = groupDebtors(transactions);
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col antialiased select-none">
+    <div className="min-h-screen flex flex-col antialiased select-none relative text-slate-900">
+      {/* Animated Starfield background */}
+      <Starfield />
+
       {/* Navbar on Main Screen */}
       {currentScreen === 'MAIN' && (
         <Navbar
@@ -334,7 +338,7 @@ const MainContent: React.FC = () => {
       )}
 
       {/* Screen Views */}
-      <main className="flex-1">
+      <main className="flex-1 relative z-10">
         {currentScreen === 'MAIN' ? (
           <MainScreen
             transactions={transactions}
@@ -422,7 +426,7 @@ const MainContent: React.FC = () => {
 
       {/* Voice Fallback Modal */}
       {isVoiceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <div className="flex items-center gap-2">
