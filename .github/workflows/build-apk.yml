@@ -44,29 +44,46 @@ jobs:
       - name: Add Android Platform
         run: npx cap add android
 
+      - name: Prepare Signing Keystore
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Using persistent release keystore from GitHub Secrets..."
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          elif [ ! -f "release.keystore" ]; then
+            echo "Generating fallback persistent release.keystore..."
+            keytool -genkey -v -keystore release.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=AutoFinance,O=AutoFinance,C=RU"
+          fi
+
       - name: Configure Android Permissions, FileProvider & Versioning
         env:
           TAG_NAME: ${{ github.ref_name }}
+          KEYSTORE_PATH: ../release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'android' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
         run: node scripts/configure-android.js
 
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Prepare Signing Keystore
-        run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "Using custom keystore from GitHub Secrets..."
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > debug.keystore
-          elif [ ! -f "debug.keystore" ]; then
-            echo "Generating persistent debug.keystore..."
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
       - name: Build Android APK
+        env:
+          KEYSTORE_PATH: ../release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'android' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'androiddebugkey' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'android' }}
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
+
+      - name: Print APK Certificate Fingerprint (SHA-256)
+        run: |
+          APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK_FILE" ]; then
+            echo "=== APK CERTIFICATE FINGERPRINT (SHA-256) ==="
+            keytool -printcert -jarfile "$APK_FILE" || true
+          fi
 
       - name: Create GitHub Release and Upload APK
         uses: softprops/action-gh-release@v2

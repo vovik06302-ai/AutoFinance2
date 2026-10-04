@@ -23,11 +23,10 @@ const filePathsContent = `<?xml version="1.0" encoding="utf-8"?>
 fs.writeFileSync(filePathsFile, filePathsContent, 'utf8');
 console.log('✅ Updated res/xml/file_paths.xml');
 
-// 2. Configure AndroidManifest.xml
+// 2. Configure AndroidManifest.xml permissions and FileProvider
 if (fs.existsSync(manifestPath)) {
   let manifest = fs.readFileSync(manifestPath, 'utf8');
 
-  // Add permissions if missing
   const permissions = [
     'android.permission.INTERNET',
     'android.permission.RECORD_AUDIO',
@@ -43,7 +42,6 @@ if (fs.existsSync(manifestPath)) {
     }
   });
 
-  // Add FileProvider inside <application> if missing
   if (!manifest.includes('androidx.core.content.FileProvider')) {
     const providerXml = `
         <provider
@@ -70,38 +68,42 @@ if (fs.existsSync(manifestPath)) {
 if (fs.existsSync(gradlePath)) {
   let gradle = fs.readFileSync(gradlePath, 'utf8');
 
-  // Version extraction from TAG_NAME or package.json
+  // Calculate versionCode and versionName
   const tagVersion = process.env.TAG_NAME ? process.env.TAG_NAME.replace(/^v/i, '') : null;
-  const pkgVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version || '1.2.0';
+  const pkgVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version || '1.2.1';
   const versionName = tagVersion || pkgVersion;
 
   const parts = versionName.split('.').map(n => parseInt(n, 10) || 0);
   const versionCode = (parts[0] || 1) * 10000 + (parts[1] || 0) * 100 + (parts[2] || 0);
 
-  console.log(`📌 Setting Version Name: ${versionName}, Version Code: ${versionCode}`);
+  console.log(`📌 Version Name: ${versionName}, Version Code: ${versionCode}`);
 
   gradle = gradle.replace(/versionName\s+["'].*?["']/, `versionName "${versionName}"`);
   gradle = gradle.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
 
-  // Ensure debug signingConfig is configured with debug.keystore if available
-  if (fs.existsSync('debug.keystore') || fs.existsSync('../debug.keystore')) {
-    if (!gradle.includes('signingConfigs')) {
-      const signingBlock = `
+  // Ensure signingConfigs release is present
+  if (!gradle.includes('signingConfigs {')) {
+    const signingBlock = `
     signingConfigs {
-        debug {
-            storeFile file('../../debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+        release {
+            storeFile file(System.getenv("KEYSTORE_PATH") ?: "../../release.keystore")
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "android"
+            keyAlias System.getenv("KEY_ALIAS") ?: "androiddebugkey"
+            keyPassword System.getenv("KEY_PASSWORD") ?: "android"
         }
     }
 `;
-      gradle = gradle.replace('android {', `android {${signingBlock}`);
-    }
+    gradle = gradle.replace('android {', `android {${signingBlock}`);
+  }
+
+  // Ensure debug and release buildTypes use signingConfigs.release
+  if (gradle.includes('buildTypes {')) {
+    gradle = gradle.replace(/debug\s*\{[\s\S]*?\}/, `debug {\n            signingConfig signingConfigs.release\n        }`);
+    gradle = gradle.replace(/release\s*\{[\s\S]*?\}/, `release {\n            signingConfig signingConfigs.release\n            minifyEnabled false\n            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'\n        }`);
   }
 
   fs.writeFileSync(gradlePath, gradle, 'utf8');
-  console.log('✅ Updated android/app/build.gradle version & signing settings');
+  console.log('✅ Updated android/app/build.gradle with persistent release signingConfig & versioning');
 }
 
 console.log('🎉 Android configuration completed successfully!');
